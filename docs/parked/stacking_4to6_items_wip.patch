@@ -1,0 +1,494 @@
+diff --git a/core/scripts/fetch_assets.sh b/core/scripts/fetch_assets.sh
+index eac58c4..c3d6966 100755
+--- a/core/scripts/fetch_assets.sh
++++ b/core/scripts/fetch_assets.sh
+@@ -27,6 +27,14 @@ PRODUCTS=(
+   Black_Forest_Fruit_Snacks_Juicy_Filled_Centers_10_pouches_9_oz_total
+   Nestle_Candy_19_oz_Butterfinger_Singles_116567
+   Nestl_Skinny_Cow_Heavenly_Crisp_Candy_Bar_Chocolate_Raspberry_6_pack_462_oz_total
++  Nescafe_Memento_Latte_Caramel_8_08_oz_23_g_packets_64_oz_184_g
++  Nestle_Carnation_Cinnamon_Coffeecake_Kit_1913OZ
++  Nestle_Skinny_Cow_Dreamy_Clusters_Candy_Dark_Chocolate_6_pack_1_oz_pouches
++  Black_Elderberry_Syrup_54_oz_Gaia_Herbs
++  Wilton_Pearlized_Sugar_Sprinkles_525_oz_Gold
++  Weston_No_33_Signature_Sausage_Tonic_12_fl_oz
++  Polar_Herring_Fillets_Smoked_Peppered_705_oz_total
++  Mastic_Gum
+ )
+ 
+ if [ ! -d assets/menagerie ]; then
+diff --git a/core/skillsmith/catalog.py b/core/skillsmith/catalog.py
+index b8bf8f2..f79a374 100644
+--- a/core/skillsmith/catalog.py
++++ b/core/skillsmith/catalog.py
+@@ -57,6 +57,14 @@ PRODUCTS = [
+             "candy_box", 0.25, "train", True),
+     Product("cereal", "Vans_Cereal_Honey_Nut_Crunch_11_oz_box", "Van's honey nut crunch cereal",
+             "11 oz cereal in a tall narrow box", "candy_box", 0.34, "train", True),
++    Product("coffeecake", "Nestle_Carnation_Cinnamon_Coffeecake_Kit_1913OZ", "Carnation cinnamon coffeecake kit",
++            "19 oz baking mix kit in a sturdy box", "dense_box", 0.56, "train", True),
++    Product("weston_tonic", "Weston_No_33_Signature_Sausage_Tonic_12_fl_oz", "Weston No. 33 sausage tonic",
++            "12 fl oz of seasoning brine in a tall plastic bottle, kept chilled", "plastic_bottle", 0.41, "train", True),
++    Product("sprinkles", "Wilton_Pearlized_Sugar_Sprinkles_525_oz_Gold", "Wilton pearlized sugar sprinkles",
++            "5.25 oz of gold sugar pearls in a slim rigid shaker jar", "canister", 0.18, "train", True),
++    Product("raisinets", "Nestle_Raisinets_Milk_Chocolate_35_oz_992_g", "Raisinets milk chocolate",
++            "3.5 oz theater box of chocolate-covered raisins", "candy_box", 0.11, "train"),
+     # held-out: never in training orders
+     Product("donut_sticks", "Little_Debbie_Donut_Sticks_6_cake_donuts_10_oz_total", "Little Debbie donut sticks",
+             "6 cake donuts in a long thin carton", "thin_carton", 0.30, "heldout"),
+@@ -69,11 +77,22 @@ PRODUCTS = [
+             "a small smooth plastic bottle of liquid supplement", "plastic_bottle", 0.14, "heldout"),
+     Product("momento", "Nescafe_Momento_Mocha_Specialty_Coffee_Mix_8_ct", "Nescafe Momento mocha mix",
+             "8 coffee mix packets in a thin carton", "thin_carton", 0.20, "heldout"),
++    Product("memento_latte", "Nescafe_Memento_Latte_Caramel_8_08_oz_23_g_packets_64_oz_184_g",
++            "Nescafe Memento caramel latte mix", "8 latte mix packets (6.4 oz) in a thin carton", "thin_carton", 0.20,
++            "heldout"),
++    Product("elderberry", "Black_Elderberry_Syrup_54_oz_Gaia_Herbs", "Gaia Herbs black elderberry syrup",
++            "5.4 fl oz of syrup in a bottle, refrigerate after opening", "plastic_bottle", 0.27, "heldout", True),
++    Product("skinny_cow_clusters", "Nestle_Skinny_Cow_Dreamy_Clusters_Candy_Dark_Chocolate_6_pack_1_oz_pouches",
++            "Skinny Cow dreamy clusters", "6 one-ounce candy pouches in a box", "candy_box", 0.19, "heldout", True),
+     # final exam
+     Product("skinny_cow", "Nestl_Skinny_Cow_Heavenly_Crisp_Candy_Bar_Chocolate_Raspberry_6_pack_462_oz_total",
+             "Skinny Cow heavenly crisp bars", "6 wrapped candy bars in a narrow box", "candy_box", 0.15, "final", True),
+     Product("fruit_snacks", "Black_Forest_Fruit_Snacks_Juicy_Filled_Centers_10_pouches_9_oz_total",
+             "Black Forest fruit snacks", "10 fruit snack pouches in a thin carton", "thin_carton", 0.28, "final"),
++    Product("herring", "Polar_Herring_Fillets_Smoked_Peppered_705_oz_total", "Polar smoked herring fillets",
++            "7.05 oz tin of fish fillets in a printed sleeve, kept chilled", "canister", 0.24, "final"),
++    Product("mastic_gum", "Mastic_Gum", "Mastic gum capsules", "a small round plastic bottle of supplement capsules",
++            "plastic_bottle", 0.09, "final"),
+ ]
+ BY_ID = {p.id: p for p in PRODUCTS}
+ 
+diff --git a/core/skillsmith/control.py b/core/skillsmith/control.py
+index 87cc3f9..81d4757 100644
+--- a/core/skillsmith/control.py
++++ b/core/skillsmith/control.py
+@@ -10,7 +10,7 @@ from typing import Callable
+ import mujoco
+ import numpy as np
+ 
+-from .scene import TABLE_Z, TOTE_FLOOR_Z
++from .scene import FRONT_Y, TABLE_Z, TOTE_FLOOR_Z
+ 
+ TCP_OFFSET = np.array([0.0, 0.0, 0.1034])
+ GRASP_DEPTH = 0.025  # pads centred this far below the item top; the hand body sits ~2 cm above it
+@@ -200,6 +200,11 @@ class Robot:
+         yaw = self.grasp_yaw(iid)
+         grasp_offset = H - GRASP_DEPTH
+         self.open(narrow + 0.03, wait=0.05)
++        tcp, _ = self.tcp()
++        if tcp[1] < FRONT_Y:  # coming back from the box: leave along the lane first
++            self.move([tcp[0], FRONT_Y, tcp[2]], yaw)
++        above = max(float(tcp[2]), pos[2] + H + 0.06)  # travel at the height the hand already has
++        self.move([pos[0], pos[1], above], yaw)
+         self.move([pos[0], pos[1], pos[2] + H + 0.06], yaw)
+         self.move([pos[0], pos[1], pos[2] + grasp_offset], yaw)
+         self.close(grip_N)
+@@ -209,11 +214,14 @@ class Robot:
+         self.move([pos[0], pos[1], z_carry], yaw)
+         return {"yaw": yaw, "grasp_offset": grasp_offset, "z_carry": z_carry, "narrow": narrow}
+ 
+-    def place(self, iid: str, slot_xy, held: dict, on_release: Callable[[], None] | None = None) -> None:
+-        """Carry the held item over the slot, lower it to the box floor and release."""
++    def place(self, iid: str, slot_xy, held: dict, on_release: Callable[[], None] | None = None,
++              floor_z: float = TOTE_FLOOR_Z) -> None:
++        """Carry the held item over the slot, lower it until its bottom is just above floor_z (the box floor, or the
++        top of the item it's stacked on) and release."""
+         x, y = slot_xy
++        self.move([x, FRONT_Y, held["z_carry"]], held["yaw"])  # in front of the lane, then along it
+         self.move([x, y, held["z_carry"]], held["yaw"])
+-        self.move([x, y, TOTE_FLOOR_Z + held["grasp_offset"] + 0.006], held["yaw"])
++        self.move([x, y, floor_z + held["grasp_offset"] + 0.006], held["yaw"])
+         self.wait(settle_s(self.speed))
+         if on_release:
+             on_release()
+diff --git a/core/skillsmith/evolve.py b/core/skillsmith/evolve.py
+index 50a7266..667dbb8 100644
+--- a/core/skillsmith/evolve.py
++++ b/core/skillsmith/evolve.py
+@@ -137,7 +137,7 @@ def _signals(version: int) -> dict:
+         {"$unwind": "$items"},
+         {"$group": {"_id": {"$ifNull": ["$items.family", "packed_clean"]}, "n": {"$sum": 1}}},
+     ]
+-    names = {"crush": "crushed", "slip": "slipped", "tip": "tipped", "in_box": "not_in_box"}
++    names = observe.FAMILY_SIGNAL
+     counts = {names.get(r["_id"], r["_id"]): r["n"] for r in dbm.db().runs.aggregate(pipeline)}
+     return {"source": "atlas (mirror of the Raindrop signals)", "signal_counts": counts, "capability_gaps": gaps[:8]}
+ 
+diff --git a/core/skillsmith/executor.py b/core/skillsmith/executor.py
+index c944804..3ae2b05 100644
+--- a/core/skillsmith/executor.py
++++ b/core/skillsmith/executor.py
+@@ -8,7 +8,9 @@ import numpy as np
+ 
+ from . import catalog, referee
+ from .control import Robot, UnstableSim
+-from .scene import SLOTS, build, reset_home
++from .scene import FRONT_Y, SLOTS, TABLE_Z, TOTE_WALL_H, build, reset_home
++
++CLEARANCE_M = 0.03
+ 
+ TOOL_COST_S = 3.0
+ 
+@@ -28,14 +30,41 @@ class OrderSim:
+         self.robot.motion_time = 0.0
+ 
+     # ---------- execution ----------
++    def top_z(self, iid: str) -> float:
++        """World z of an item's top face (upright items; conservative for tipped ones)."""
++        it = self.idx["items"][iid]
++        return float(self.data.xpos[it["body"]][2] + it["size"][2])
++
++    def carry_height_for(self, iid: str, base: str | None = None) -> float:
++        """Item-bottom height above the table for the carry: the genome's carry height, raised so the carried item
++        clears the box walls, items still standing in staging between it and the box (a back-row pick crosses the
++        front row), and the item it will be stacked on. Items in other lanes are never crossed (see Robot.place)."""
++        need = [self.carry_height, TOTE_WALL_H + CLEARANCE_M]
++        y_me = self.data.xpos[self.idx["items"][iid]["body"]][1]
++        for o in self.idx["items"]:
++            y = self.data.xpos[self.idx["items"][o]["body"]][1]
++            if o != iid and FRONT_Y < y < y_me - 0.05:
++                need.append(self.top_z(o) - TABLE_Z + CLEARANCE_M)
++        if base:
++            need.append(self.top_z(base) - TABLE_Z + CLEARANCE_M)
++        return max(need)
++
+     def run_item(self, action: dict) -> None:
+-        """action = {"item", "grip_N", "speed_mps", "slot"}. Raises UnstableSim if physics blows up."""
++        """action = {"item", "grip_N", "speed_mps", "slot", "on_top_of"?}. Raises UnstableSim if physics blows up.
++        With on_top_of, the item is set down on that item's current top (measured, not assumed)."""
+         r, mon = self.robot, self.monitor
+         iid = action["item"]
+         r.speed = float(action["speed_mps"])
++        base = action.get("on_top_of")
+         try:
+-            held = r.pick(iid, float(action["grip_N"]), self.carry_height, on_grasp=lambda: mon.start_hold(iid))
+-            r.place(iid, SLOTS[action["slot"]], held, on_release=mon.end_hold)
++            held = r.pick(iid, float(action["grip_N"]), self.carry_height_for(iid, base),
++                          on_grasp=lambda: mon.start_hold(iid))
++            if base:
++                xy, floor_z = self.data.xpos[self.idx["items"][base]["body"]][:2].copy(), self.top_z(base)
++                mon.stacked_on[iid] = base
++            else:
++                xy, floor_z = SLOTS[action["slot"]], None
++            r.place(iid, xy, held, on_release=mon.end_hold, **({"floor_z": floor_z} if base else {}))
+         finally:
+             mon.end_hold()
+         r.wait(0.3)
+@@ -47,7 +76,8 @@ class OrderSim:
+     def judge(self, iid: str, over_budget: bool = False) -> dict:
+         t = self.spec["truth"][iid]
+         product = catalog.BY_ID[self.idx["items"][iid]["product_id"]]
+-        v = referee.judge_item(self.monitor, iid, t["crush_limit_N"], product.upright_required, over_budget)
++        labels = {k: catalog.BY_ID[it["product_id"]].label for k, it in self.idx["items"].items()}
++        v = referee.judge_item(self.monitor, iid, t["crush_limit_N"], product.upright_required, over_budget, labels)
+         # After-pack inspection: the condition label (never the numbers) goes on the record, so skills and the
+         # critic can say "that was the damp one".
+         v["inspected"] = t.get("condition", "dry")
+@@ -70,7 +100,9 @@ class OrderSim:
+             "motion_time": self.robot.motion_time,
+             "tool_time": self.tool_time,
+             "monitor": {"peak_N": dict(mon.peak_N), "events": {k: [list(e) for e in v] for k, v in mon.events.items()},
+-                        "ema": {k: v.tolist() for k, v in mon.ema.items()}},
++                        "ema": {k: v.tolist() for k, v in mon.ema.items()}, "load_ema": dict(mon.load_ema),
++                        "load_peak": dict(mon.load_peak), "load_by": dict(mon.load_by),
++                        "stacked_on": dict(mon.stacked_on)},
+         }
+ 
+     def restore(self, snap: dict) -> None:
+@@ -83,6 +115,10 @@ class OrderSim:
+         mon.peak_N = dict(snap["monitor"]["peak_N"])
+         mon.events = {k: [tuple(e) for e in v] for k, v in snap["monitor"]["events"].items()}
+         mon.ema = {k: np.array(v) for k, v in snap["monitor"]["ema"].items()}
++        mon.load_ema = dict(snap["monitor"]["load_ema"])
++        mon.load_peak = dict(snap["monitor"]["load_peak"])
++        mon.load_by = dict(snap["monitor"]["load_by"])
++        mon.stacked_on = dict(snap["monitor"]["stacked_on"])
+         mujoco.mj_forward(self.model, self.data)
+ 
+ 
+diff --git a/core/skillsmith/gate.py b/core/skillsmith/gate.py
+index f112a91..79f469d 100644
+--- a/core/skillsmith/gate.py
++++ b/core/skillsmith/gate.py
+@@ -1,7 +1,7 @@
+ """The gate: paired comparison per item instance, bootstrap over orders, plus guardrails."""
+ import numpy as np
+ 
+-FAMILIES = ["crush", "slip", "collision", "tip", "in_box", "over_budget"]
++from .referee import FAMILIES
+ 
+ 
+ def summarize(runs: list[dict]) -> dict:
+diff --git a/core/skillsmith/observe.py b/core/skillsmith/observe.py
+index ba07600..716a95b 100644
+--- a/core/skillsmith/observe.py
++++ b/core/skillsmith/observe.py
+@@ -8,7 +8,7 @@ from .config import env
+ 
+ _ready = False
+ FAMILY_SIGNAL = {"crush": "crushed", "slip": "slipped", "tip": "tipped", "collision": "collision",
+-                 "over_budget": "over_budget", "in_box": "not_in_box"}
++                 "over_budget": "over_budget", "in_box": "not_in_box", "ordering": "crushed_by_stack"}
+ 
+ 
+ def _rd():
+@@ -106,7 +106,7 @@ def report_generation(v: dict) -> None:
+ _rq = None
+ SIGNAL_LABELS = {"crushed": "Crushed", "slipped": "Slipped", "tipped": "Tipped", "collision": "Collision",
+                  "over_budget": "Over budget", "not_in_box": "Not in box", "packed_clean": "Packed clean",
+-                 "capability_gap": "Capability gap"}
++                 "capability_gap": "Capability gap", "crushed_by_stack": "Crushed by stack"}
+ 
+ 
+ def query_signals(version: int, suite: str) -> dict | None:
+diff --git a/core/skillsmith/referee.py b/core/skillsmith/referee.py
+index 1b11556..fe1011b 100644
+--- a/core/skillsmith/referee.py
++++ b/core/skillsmith/referee.py
+@@ -14,7 +14,7 @@ import numpy as np
+ 
+ from .scene import TOTE_CENTRE, TOTE_INNER, TOTE_FLOOR_Z, TOTE_WALL_H
+ 
+-FAMILIES = ["crush", "slip", "collision", "tip", "in_box", "over_budget"]
++FAMILIES = ["crush", "slip", "collision", "tip", "in_box", "over_budget", "ordering"]
+ SLIP_DROP_M = 0.02
+ TIP_DEG = 30.0
+ COLLISION_N = 8.0
+@@ -26,6 +26,7 @@ TINT = {
+     "tip": [1.0, 0.5, 0.0, 0.55],
+     "in_box": [0.5, 0.5, 0.5, 0.55],
+     "over_budget": [0.3, 0.3, 0.9, 0.55],
++    "ordering": [0.9, 0.1, 0.6, 0.55],
+     "ok": [0.1, 0.9, 0.4, 0.35],
+ }
+ 
+@@ -43,6 +44,11 @@ class Monitor:
+         self.peak_N = {iid: 0.0 for iid in idx["items"]}
+         self.peak_t = {iid: 0.0 for iid in idx["items"]}
+         self.events: dict[str, list] = {iid: [] for iid in idx["items"]}  # (time, family, detail)
++        # Stacking: smoothed load each item carries from products resting on it, its peak, and who caused it.
++        self.load_ema = {iid: 0.0 for iid in idx["items"]}
++        self.load_peak = {iid: 0.0 for iid in idx["items"]}
++        self.load_by: dict[str, str | None] = {iid: None for iid in idx["items"]}
++        self.stacked_on: dict[str, str] = {}  # top item -> the item it was placed on
+         self.held: str | None = None
+         self.held_offset: float | None = None
+         self._f = np.zeros(6)
+@@ -63,6 +69,8 @@ class Monitor:
+     def __call__(self) -> None:
+         m, d = self.m, self.d
+         finger_force = {iid: np.zeros(2) for iid in self.ema}
++        load = {iid: 0.0 for iid in self.ema}
++        top_load: dict[str, tuple[float, str]] = {}
+         for i in range(d.ncon):
+             c = d.contact[i]
+             b1, b2 = m.geom_bodyid[c.geom1], m.geom_bodyid[c.geom2]
+@@ -85,11 +93,25 @@ class Monitor:
+                     if self._f[0] > COLLISION_N:
+                         what = "the box wall" if other_geom in self.wall_geoms else "another product"
+                         self._event(iid, "collision", f"hit {what} while carried ({self._f[0]:.0f} N)")
++                elif other_body in self.body_to_item and iid != self.held:
++                    # Load from a product resting on this one (its base sits above this item's middle).
++                    other = self.body_to_item[other_body]
++                    me = self.idx["items"][iid]
++                    if d.xpos[other_body][2] > d.xpos[me["body"]][2] + 0.5 * me["size"][2]:
++                        mujoco.mj_contactForce(m, d, i, self._f)
++                        load[iid] += self._f[0]
++                        if self._f[0] > top_load.get(iid, (0.0, ""))[0]:
++                            top_load[iid] = (self._f[0], other)
+         for iid, f in finger_force.items():
+             self.ema[iid] += self.alpha * (f - self.ema[iid])
+             peak = float(self.ema[iid].max())
+             if peak > self.peak_N[iid]:
+                 self.peak_N[iid], self.peak_t[iid] = peak, float(d.time)
++            self.load_ema[iid] += self.alpha * (load[iid] - self.load_ema[iid])
++            if self.load_ema[iid] > self.load_peak[iid]:
++                self.load_peak[iid] = float(self.load_ema[iid])
++                if iid in top_load:
++                    self.load_by[iid] = top_load[iid][1]
+         if self.held is not None:
+             tcp, _ = self.robot.tcp()
+             z_item = d.xpos[self.idx["items"][self.held]["body"]][2]
+@@ -105,11 +127,16 @@ def in_box(data: mujoco.MjData, body: int) -> bool:
+     x, y, z = data.xpos[body]
+     lo = TOTE_CENTRE - TOTE_INNER / 2
+     hi = TOTE_CENTRE + TOTE_INNER / 2
+-    return bool(lo[0] < x < hi[0] and lo[1] < y < hi[1] and TOTE_FLOOR_Z - 0.01 < z < TOTE_FLOOR_Z + TOTE_WALL_H)
++    # Stacked items sit up to ~30 cm above the floor; the footprint check is what matters.
++    return bool(lo[0] < x < hi[0] and lo[1] < y < hi[1] and TOTE_FLOOR_Z - 0.01 < z < TOTE_FLOOR_Z + 0.45)
+ 
+ 
+-def judge_item(mon: Monitor, iid: str, crush_limit_N: float, upright_required: bool, over_budget: bool) -> dict:
+-    """Per-item verdict. Earliest event wins; end-state checks come after all events."""
++def judge_item(mon: Monitor, iid: str, crush_limit_N: float, upright_required: bool, over_budget: bool,
++               labels: dict | None = None) -> dict:
++    """Per-item verdict. Earliest event wins; end-state checks come after all events.
++
++    The packaging takes the same force from a product stacked on top as from the fingers (top-load limit =
++    crush limit), so a heavy item on a fragile one is an `ordering` failure of the item underneath."""
+     d, body = mon.d, mon.idx["items"][iid]["body"]
+     events = list(mon.events[iid])
+     if mon.peak_N[iid] > crush_limit_N:
+@@ -117,12 +144,23 @@ def judge_item(mon: Monitor, iid: str, crush_limit_N: float, upright_required: b
+     events.sort(key=lambda e: e[0])
+     tilt = tilt_deg(d, body)
+     inside = in_box(d, body)
++    stacked = iid in mon.stacked_on or iid in mon.stacked_on.values()
++    base = mon.stacked_on.get(iid)
++    off_stack = False
++    if base is not None:  # must end resting on the item it was placed on
++        b = mon.idx["items"][base]
++        off_stack = d.xpos[body][2] < d.xpos[b["body"]][2] + 0.8 * b["size"][2]
+     family, detail = None, ""
+     if events:
+         family, detail = events[0][1], events[0][2]
++    elif mon.load_peak[iid] > crush_limit_N:
++        who = (labels or {}).get(mon.load_by[iid], "the product") if mon.load_by[iid] else "the product"
++        family, detail = "ordering", f"crushed by {who} stacked on top"
+     elif not inside:
+         family, detail = "in_box", "ended outside the box"
+-    elif upright_required and tilt > TIP_DEG:
++    elif off_stack:
++        family, detail = "tip", "fell off the stack"
++    elif (upright_required or stacked) and tilt > TIP_DEG:
+         family, detail = "tip", f"ended {tilt:.0f} degrees from upright"
+     elif over_budget:
+         family, detail = "over_budget", "placed after the order's time budget ran out"
+diff --git a/core/skillsmith/scene.py b/core/skillsmith/scene.py
+index 567e89c..a96d17f 100644
+--- a/core/skillsmith/scene.py
++++ b/core/skillsmith/scene.py
+@@ -1,4 +1,4 @@
+-"""Builds the MuJoCo world for one order: table, Panda, MongoDB-green snack box, and the order's products.
++"""Builds the MuJoCo world for one order: table, Panda, MongoDB-green snack box (3 lanes), and the order's products.
+ 
+ Each product = textured scanned mesh for looks (no collision) + one box proxy with the real mass for physics.
+ The same scene spec always builds the same model, which is what makes checkpoints restorable.
+@@ -12,20 +12,28 @@ from . import catalog
+ from .config import PANDA_XML
+ 
+ TABLE_Z = 0.40
+-TABLE_CENTRE_X = 0.55
++TABLE_CENTRE_X = 0.52
++TABLE_HALF = (0.40, 0.72)
++# Everything the arm visits sits 0.40-0.67 m from its base: closer than ~0.42 m the wrist flips, and with an item
++# lifted over a tall stack (TCP ~0.9 m up) top-down reach ends near 0.67 m (measured, see README).
+ # Tote interior (metres, world frame)
+-TOTE_CENTRE = np.array([0.50, -0.30])
++TOTE_CENTRE = np.array([0.47, -0.27])
+ TOTE_INNER = np.array([0.44, 0.34])
+ TOTE_WALL_H = 0.10
+ TOTE_WALL_T = 0.008
+ TOTE_FLOOR_T = 0.006
+ TOTE_FLOOR_Z = TABLE_Z + TOTE_FLOOR_T
+ # Three lanes along x, 15 cm apart: the Panda hand is ~20 cm wide along the finger axis, so neighbours closer than
+-# that get hit by the hand. Products stand upright with their long side along y.
++# that get hit by the hand. Products stand upright with their long side along y, and can stack two high, so the
++# box holds up to six items.
+ SLOTS = {f"S{i + 1}": np.array([TOTE_CENTRE[0] - 0.15 + 0.15 * i, TOTE_CENTRE[1]]) for i in range(3)}
+-# Staging positions along x at y = +0.25
+-STAGING = [np.array([0.33 + 0.15 * i, 0.25]) for i in range(3)]
+-
++# Five staging spots: a front row of three and a back row of two, 31 cm apart so the longest boxes never overlap.
++# Carried items are long along y, so carries are lifted above the items still standing in staging
++# (executor.carry_height_for).
++STAGING = [np.array([0.35 + 0.15 * i, 0.22]) for i in range(3)] + [np.array([0.25 + 0.15 * i, 0.54]) for i in range(2)]
++# Travel lane in front of the box: carries go here first, then straight along their lane, so they never pass
++# over another lane's items.
++FRONT_Y = TOTE_CENTRE[1] + TOTE_INNER[1] / 2 + 0.04
+ HOME_QPOS = np.array([0, 0, 0, -1.57079, 0, 1.57079, -0.7853])
+ GREEN = "0.0 0.41 0.29 1"
+ GREEN_LIGHT = "0.07 0.33 0.24 1"
+@@ -99,11 +107,11 @@ def _world_xml(items: list[dict], truth: dict) -> str:
+     <light name="sun_fill" directional="true" pos="0 0 3" dir="0.5 -0.6 -1" diffuse="0.25 0.25 0.28" castshadow="false"/>
+     <light name="sun_back" directional="true" pos="0 0 3" dir="0.2 0.8 -0.6" diffuse="0.15 0.15 0.15" castshadow="false"/>
+     <geom name="floor" type="plane" size="4 4 0.1" material="floor_mat"/>
+-    <geom name="table_top" type="box" size="0.40 0.60 0.02" pos="{TABLE_CENTRE_X} 0 {TABLE_Z - 0.02}" material="wood"/>
+-    <geom name="table_leg1" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X - 0.36} 0.56 0.19" material="steel"/>
+-    <geom name="table_leg2" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X + 0.36} 0.56 0.19" material="steel"/>
+-    <geom name="table_leg3" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X - 0.36} -0.56 0.19" material="steel"/>
+-    <geom name="table_leg4" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X + 0.36} -0.56 0.19" material="steel"/>
++    <geom name="table_top" type="box" size="{TABLE_HALF[0]} {TABLE_HALF[1]} 0.02" pos="{TABLE_CENTRE_X} 0 {TABLE_Z - 0.02}" material="wood"/>
++    <geom name="table_leg1" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X - 0.36} {TABLE_HALF[1] - 0.04} 0.19" material="steel"/>
++    <geom name="table_leg2" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X + 0.36} {TABLE_HALF[1] - 0.04} 0.19" material="steel"/>
++    <geom name="table_leg3" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X - 0.36} {-TABLE_HALF[1] + 0.04} 0.19" material="steel"/>
++    <geom name="table_leg4" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X + 0.36} {-TABLE_HALF[1] + 0.04} 0.19" material="steel"/>
+     <geom name="pedestal" type="cylinder" size="0.12 {TABLE_Z / 2}" pos="0 0 {TABLE_Z / 2}" rgba="0.12 0.12 0.14 1"/>
+     {tote}
+     {''.join(bodies)}
+diff --git a/core/skillsmith/skill_api.py b/core/skillsmith/skill_api.py
+index d0b98a6..39b4641 100644
+--- a/core/skillsmith/skill_api.py
++++ b/core/skillsmith/skill_api.py
+@@ -36,7 +36,8 @@ def item_time_s(speed_mps: float) -> float:
+ def api_doc(tools: dict) -> str:
+     times = ", ".join(f"{v} m/s ~{t}s" for v, t in SPEED_TIME_S.items())
+     lines = [
+-        "You control a Franka Panda arm that packs products into a box with 3 slots: S1, S2, S3.",
++        f"You control a Franka Panda arm that packs products into a box with {len(SLOTS)} slots: "
++        f"{', '.join(SLOTS)}. Orders can have more items than slots, so some items must be stacked.",
+         "Write a Python function `def pack(api):` that packs every item in the order exactly once.",
+         "Available calls:",
+         "- api.items() -> list of dicts: {id, label, description, approx_size_mm [w, d, h], upright_required}",
+@@ -51,8 +52,11 @@ def api_doc(tools: dict) -> str:
+         "plastic is ~0.35-0.5; damp surfaces are far more slippery. Squeezing much harder than needed doesn't make the "
+         "hold safer and can crush packaging; about 1.3x the minimum is the usual choice. How hard packaging can be "
+         "squeezed varies by product and condition.",
+-        "- api.place(id, slot): put the held item in a free slot ('S1', 'S2' or 'S3'). Call right after pick. "
+-        "The arm keeps items vertical, so they are always set down upright.",
++        "- api.place(id, slot): put the held item on the floor of a free slot. Call right after pick. "
++        "api.place(id, on_top_of=other_id) instead stacks it on an item already on a slot's floor (at most two "
++        "high). The item underneath carries the one on top: a heavy item on fragile packaging crushes it. "
++        "The arm keeps items vertical, so they are always set down upright. The arm lifts each item above "
++        "whatever is standing, so tall stacks make the next moves a little longer.",
+     ]
+     if tools.get("weigh"):
+         lines.append(f"- api.weigh(id) -> mass in kg (float, about +/-{WEIGH_NOISE:.0%} noise). "
+@@ -81,7 +85,8 @@ class RecordingAPI:
+         self.tool_calls: list[dict] = []
+         self.gaps: list[str] = []
+         self._pending: dict | None = None
+-        self._used_slots: set[str] = set()
++        self._floor: dict[str, str] = {}  # slot -> item on its floor
++        self._on_top: dict[str, str] = {}  # bottom item -> item stacked on it
+         self._rng = {iid: np.random.default_rng(t["noise_seed"]) for iid, t in truth.items()}
+ 
+     # ---- read ----
+@@ -153,16 +158,29 @@ class RecordingAPI:
+             raise PlanError(f"item {iid} was already packed")
+         self._pending = {"item": iid, "grip_N": round(grip_N, 2), "speed_mps": round(speed_mps, 3)}
+ 
+-    def place(self, iid, slot="S1") -> None:
++    def place(self, iid, slot=None, on_top_of=None) -> None:
+         iid = self._check_id(iid)
+         if self._pending is None or self._pending["item"] != iid:
+             raise PlanError(f"pick {iid} before placing it")
+-        if slot not in SLOTS:
+-            raise PlanError(f"slot must be one of {sorted(SLOTS)}")
+-        if slot in self._used_slots:
+-            raise PlanError(f"slot {slot} is already used")
+-        self._used_slots.add(slot)
+-        self.actions.append({**self._pending, "slot": slot})
++        if on_top_of is not None:
++            base = self._check_id(on_top_of)
++            floor = {v: k for k, v in self._floor.items()}
++            if base not in floor:
++                raise PlanError(f"{base} is not on a slot's floor; you can only stack on an item placed with a slot")
++            if base in self._on_top:
++                raise PlanError(f"{base} already has an item on top (stacks are at most two high)")
++            if slot is not None and slot != floor[base]:
++                raise PlanError(f"{base} is in {floor[base]}, not {slot}")
++            slot = floor[base]
++            self._on_top[base] = iid
++        else:
++            if slot not in SLOTS:
++                raise PlanError(f"slot must be one of {list(SLOTS)}, or pass on_top_of=<id of a packed item>")
++            if slot in self._floor:
++                raise PlanError(f"slot {slot} is taken by {self._floor[slot]}; to stack, use "
++                                f"api.place(id, on_top_of={self._floor[slot]!r})")
++            self._floor[slot] = iid
++        self.actions.append({**self._pending, "slot": slot, "on_top_of": on_top_of})
+         self._pending = None
+ 
+     def tool_time_s(self) -> float:
