@@ -5,6 +5,7 @@ and its evaluation is a queue batch. Restarting `evolve` resumes at the first un
 """
 import json
 import multiprocessing as mp
+import os
 import time
 
 from pymongo.errors import OperationFailure
@@ -126,6 +127,9 @@ def _signals(version: int) -> dict:
                  + ", ".join(f"{k.replace('_', ' ')} on {n}" for k, n in c.items() if n), version=version,
                  source="raindrop", counts=c)
         return rd
+    if os.environ.get("RAINDROP_QUERY_API_KEY"):
+        dbm.feed("info", f"Raindrop read-back unavailable (rate limit or network); meta-agent reads the same "
+                 f"signals from Atlas for v{version}", version=version)
     pipeline = [
         {"$match": {"version": version, "suite": "T", "status": "done"}},
         {"$unwind": "$items"},
