@@ -112,6 +112,11 @@ def cmd_live(args) -> None:
                  order_id=oid)
         if not args.enqueue_only:
             _worker([batch_id], True)
+            run = d.runs.find_one({"batch_id": batch_id})
+            print(f"packed for {name}: {run['damage_free']}/{run['n_items']} damage-free, video {run.get('video')}",
+                  flush=True)
+        if args.once:
+            return
 
 
 def cmd_demo_kill(args) -> None:
