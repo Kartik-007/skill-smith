@@ -64,6 +64,27 @@ def report_run(run: dict, genome_summary: str) -> str | None:
         return None
 
 
+def report_generation(v: dict) -> None:
+    """One Raindrop event per harness generation: the meta-agent's patch (input) and the gate verdict (output)."""
+    if os.environ.get("SKILLSMITH_NO_RAINDROP") == "1":
+        return
+    try:
+        rd = _rd()
+        eid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"skillsmith/generation/{v['version']}"))
+        s = v.get("scores", {}) or {}
+        rd.track_ai(user_id="meta-agent", event="harness_patch", event_id=eid, model=(v.get("meta") or {}).get("model", ""),
+                    input=f"{v.get('patch_text')}\nRationale: {v.get('rationale', '')}",
+                    output=f"{v.get('verdict')}: {v.get('verdict_reason', '')}", convo_id="evolution",
+                    properties={"harness_version": v["version"], "parent": v.get("parent") or 0,
+                                "verdict": v.get("verdict") or "", "H": s.get("H") or 0.0, "T": s.get("T") or 0.0})
+        rd.track_signal(event_id=eid, name=f"gate_{v.get('verdict')}",
+                        sentiment="POSITIVE" if v.get("verdict") == "kept" else "NEGATIVE",
+                        properties={"harness_version": v["version"]})
+        rd.flush()
+    except Exception as e:
+        print(f"[raindrop] skipped: {e}")
+
+
 def flush() -> None:
     if _ready:
         import raindrop.analytics as raindrop

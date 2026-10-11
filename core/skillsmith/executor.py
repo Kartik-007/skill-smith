@@ -51,7 +51,8 @@ class OrderSim:
 
     def tint(self, renderer, verdicts: list[dict]) -> None:
         for v in verdicts:
-            renderer.tints[self.idx["items"][v["id"]]["vis_geom"]] = np.array(referee.TINT[v["family"] or "ok"])
+            if v["family"]:  # only failures are highlighted; clean packs keep their real packaging
+                renderer.tints[self.idx["items"][v["id"]]["vis_geom"]] = np.array(referee.TINT[v["family"]])
 
     # ---------- checkpoints ----------
     def snapshot(self) -> dict:

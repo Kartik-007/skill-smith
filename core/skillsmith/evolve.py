@@ -10,7 +10,7 @@ import time
 from pymongo.errors import OperationFailure
 
 from . import db as dbm
-from . import gate, genome, memory
+from . import gate, genome, memory, observe
 from . import queue as q
 from .agents import critic, meta
 from .config import CODER_MODEL, STRONG_MODEL
@@ -215,6 +215,7 @@ def generation(workers: int, forced_patch: dict | None = None) -> dict:
                                            "verdict_reason": f"validator: {e}", "models": _models(inc["genome"]),
                                            "finished_at": dbm.now()})
             dbm.feed("verdict", f"Gate: v{version} REJECTED before evaluation ({e})", version=version)
+            observe.report_generation(d.harness_versions.find_one({"version": version}))
             return d.harness_versions.find_one({"version": version})
         batch_id = f"g{version:02d}"
         d.harness_versions.insert_one({**doc, "genome": g, "status": "evaluating", "verdict": None,
@@ -239,6 +240,7 @@ def generation(workers: int, forced_patch: dict | None = None) -> dict:
         "finished_at": dbm.now()}})
     dbm.feed("verdict", f"Gate: v{version} {dec['verdict'].upper().replace('_', ' ')} ({cand['patch_text']}): "
              f"{dec['reason']}", version=version)
+    observe.report_generation(d.harness_versions.find_one({"version": version}))
     run_critic(version, batch_id)
     return d.harness_versions.find_one({"version": version})
 
