@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "record-replay": "node scripts/record-replay.mjs"
   },
   "dependencies": {
     "geist": "^1.7.2",

@@ -387,7 +387,11 @@ function LatestVerdict({ v }: { v: HarnessVersion }) {
         </span>
         <span className="truncate font-mono text-[0.85rem] text-text/85">{shortPatch(v, 90)}</span>
       </div>
-      {detail ? <div className="truncate text-[0.85rem] text-mute">{detail}</div> : null}
+      {detail ? (
+        <div className="truncate text-[0.85rem] text-mute [@media(max-height:760px)]:hidden" title={detail}>
+          {detail}
+        </div>
+      ) : null}
     </div>
   );
 }

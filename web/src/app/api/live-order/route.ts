@@ -37,10 +37,11 @@ export async function POST(req: NextRequest) {
   if (!hasDbConfig()) return bad(503, "Atlas is not configured on this machine");
   try {
     const db = await getDb();
-    const products = db.collection<{ _id: string }>("products");
+    const products = db.collection<{ _id: string; split?: string }>("products");
     const known = (await products.estimatedDocumentCount()) > 0;
+    // only training snacks: held-out and final-exam products must stay unseen
     const exists = known
-      ? Boolean(await products.findOne({ _id: productId }, { projection: { _id: 1 } }))
+      ? Boolean(await products.findOne({ _id: productId, split: "train" }, { projection: { _id: 1 } }))
       : MOCK_PRODUCTS.some((p) => p.id === productId);
     if (!exists) return bad(400, "Unknown snack");
 

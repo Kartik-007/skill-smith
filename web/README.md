@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Skill Smith web
 
-## Getting Started
+The one-screen demo: robot theater (v0 vs best harness), hill climb, night shift (durable queue + recovery),
+evolution feed, and a "Pack it" form for judges. Next.js 15 (App Router) + Tailwind 4, reads MongoDB Atlas on the
+server and polls `/api/state` once a second.
 
-First, run the development server:
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd web
+ln -sfn ../.env.local .env.local   # once; MONGODB_URI and MONGODB_DB live in the repo-root .env.local
+npm install
+npm run dev                        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+If the symlink is missing, `next.config.ts` loads `../.env.local` itself. Without `MONGODB_URI` the page runs on
+sample data.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+For the projector use a production build: `npm run build && npm start`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Modes
 
-## Learn More
+| URL | What it shows |
+| --- | --- |
+| `/` | Atlas. Any empty collection falls back to sample data and its panel says `sample`. |
+| `/?mock=1` | Sample data only (`src/lib/mock.ts`); the queue moves with the clock. |
+| `/?replay=1` | `public/replay.json`: one state, or an array of states played back at 1 frame/s. No Atlas needed. |
+| `/?view=v0`, `best`, `live` | Opens the theater on one screen. |
 
-To learn more about Next.js, take a look at the following resources:
+Keys: `1` v0 vs best, `2` v0, `3` best, `4` or `L` live order. A new judge order cuts to the live view.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Record a real run for offline playback (demo insurance):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run record-replay -- 90 http://localhost:3000/api/state public/replay.json
+```
 
-## Deploy on Vercel
+## API
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `GET /api/state`: everything the screen needs (`src/lib/types.ts` → `AppState`). `no-store`.
+- `POST /api/live-order` `{name, product_id}`: inserts `{name, product_id, status: "new", created_at}` into
+  `live_requests`. Name 1 to 40 chars; product must be a `train` product. One request per client per 4 s.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The web never reads `skillsmith_truth`, and `live_requests` is the only collection it writes.
+
+## Media
+
+The core writes `public/videos/*.mp4` and `public/frames/*.png` (gitignored). `public/placeholder/` holds a
+small clip and frame so the layout works before the first render.

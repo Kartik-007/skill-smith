@@ -58,12 +58,20 @@ export function useSize<T extends HTMLElement>() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect;
+    const measure = () => {
+      const { width, height } = el.getBoundingClientRect();
       setSize((s) => (Math.abs(s.w - width) < 1 && Math.abs(s.h - height) < 1 ? s : { w: width, h: height }));
-    });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener("resize", measure);
+    // fonts can land after first layout
+    document.fonts?.ready.then(measure).catch(() => {});
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, []);
   return [ref, size] as const;
 }
