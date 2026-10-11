@@ -82,6 +82,9 @@ export function Studio({
             <Link href="/intro" className="rounded-md border border-line-2 px-2 py-1 text-ink-2 hover:border-ink hover:text-ink">
               Intro
             </Link>
+            <Link href="/storage" className="rounded-md border border-line-2 px-2 py-1 text-ink-2 hover:border-ink hover:text-ink">
+              Storage
+            </Link>
           </div>
         </header>
 

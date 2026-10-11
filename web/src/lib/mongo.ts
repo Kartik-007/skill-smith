@@ -8,12 +8,12 @@ export function hasDbConfig(): boolean {
   return Boolean(process.env.MONGODB_URI);
 }
 
-export async function getDb(): Promise<Db> {
+export async function getDb(name?: string): Promise<Db> {
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error("MONGODB_URI is not set");
-  const dbName = process.env.MONGODB_DB || "skillsmith";
+  const dbName = name || process.env.MONGODB_DB || "skillsmith";
   // Never touch the hidden-truth database from the web.
-  if (dbName.endsWith("_truth")) throw new Error("refusing to read the truth database");
+  if (dbName.includes("truth")) throw new Error("refusing to read the truth database");
   if (!g._skillsmithMongo) {
     const client = new MongoClient(uri, {
       appName: "skillsmith-web",
