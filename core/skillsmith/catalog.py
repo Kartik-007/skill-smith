@@ -10,17 +10,19 @@ import numpy as np
 
 from .config import GSO_DIR
 
-# Material classes. Friction anchored to published dry/lubricated ranges; crush limits are set from the
-# gripper calibration (control.calibrate_grips) so that each class has a narrow safe window.
+# Material classes. Friction anchored to published dry ranges for cardboard, plastic and coated tin against
+# rubber fingertips. Packaging is built for its contents, so a crush limit (newtons per finger) is the class's
+# strength per kg of *nominal* contents times the product's nominal mass. The window between "slips" (grip needed
+# ~ mass / friction, more when moving fast) and "crushes" then has a fixed shape per class, sits at a different
+# place for every product, and is moved by the hidden per-order condition (truth.py): wet x0.4 friction, damaged
+# x0.6 crush limit, overfilled / half-empty contents change the mass but not the box.
 # [assumption] values; see README.
-# Calibrated per-finger grip forces: soft ~5 N, medium ~11 N, firm ~22 N, max ~47 N.
-# "wet" only applies where it is physical (condensation on cold canisters and bottles).
 MATERIALS = {
-    "thin_carton": {"friction": (0.55, 0.55), "crush_N": (6.5, 9.0), "wet_ok": False},
-    "candy_box": {"friction": (0.55, 0.55), "crush_N": (14.0, 19.0), "wet_ok": False},
-    "dense_box": {"friction": (0.50, 0.50), "crush_N": (60.0, 80.0), "wet_ok": False},
-    "canister": {"friction": (0.45, 0.15), "crush_N": (60.0, 80.0), "wet_ok": True},
-    "plastic_bottle": {"friction": (0.35, 0.20), "crush_N": (13.0, 18.0), "wet_ok": True},
+    "thin_carton": {"friction": 0.45, "strength_N_per_kg": (30.0, 36.0)},
+    "candy_box": {"friction": 0.45, "strength_N_per_kg": (36.0, 44.0)},
+    "dense_box": {"friction": 0.50, "strength_N_per_kg": (60.0, 75.0)},
+    "canister": {"friction": 0.45, "strength_N_per_kg": (100.0, 120.0)},
+    "plastic_bottle": {"friction": 0.35, "strength_N_per_kg": (75.0, 90.0)},
 }
 
 

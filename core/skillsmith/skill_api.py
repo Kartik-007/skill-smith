@@ -1,7 +1,7 @@
 """The only interface the coder's program can call, plus the restricted sandbox that runs it.
 
-The program runs once against a RecordingAPI. Tool answers (weigh, squeeze_test) come from the hidden truth,
-bucketed and noisy, never the numbers. The result is an action list that the simulator executes later, one
+The program runs once against a RecordingAPI. Tool answers (weigh, squeeze_test, surface_check) are noisy readings
+of the hidden truth, never the truth itself. The result is an action list that the simulator executes later, one
 queue step per item.
 """
 import ast
@@ -10,40 +10,64 @@ import signal
 import numpy as np
 
 from . import catalog
+from .control import GRIP_N_RANGE, SPEED_RANGE
 from .executor import TOOL_COST_S
 from .scene import SLOTS
+from .truth import HINTS
 
-GRIPS = ("soft", "medium", "firm", "max")
-SPEEDS = ("slow", "normal", "fast")
-# Approximate motion time per item at each speed (sim seconds), measured in calibration.
-SPEED_TIME_S = {"slow": 11.8, "normal": 6.2, "fast": 4.1}
+TOOLS = ("weigh", "squeeze_test", "surface_check")
+# Approximate motion time for one item (pick + carry + place), measured in calibration: about 1.6 + 1.6 / speed s,
+# flattening out above ~0.8 m/s because the joints can't keep up.
+SPEED_TIME_S = {0.1: 17.6, 0.15: 12.2, 0.25: 8.2, 0.35: 6.2, 0.5: 5.0, 0.7: 4.1, 1.0: 3.6}
+WEIGH_NOISE = 0.12
+SQUEEZE_NOISE = 0.25
+SURFACE_ERROR = 0.10
 
 
 class PlanError(Exception):
     pass
 
 
+def item_time_s(speed_mps: float) -> float:
+    xs = sorted(SPEED_TIME_S)
+    return float(np.interp(speed_mps, xs, [SPEED_TIME_S[x] for x in xs]))
+
+
 def api_doc(tools: dict) -> str:
+    times = ", ".join(f"{v} m/s ~{t}s" for v, t in SPEED_TIME_S.items())
     lines = [
         "You control a Franka Panda arm that packs products into a box with 3 slots: S1, S2, S3.",
         "Write a Python function `def pack(api):` that packs every item in the order exactly once.",
         "Available calls:",
         "- api.items() -> list of dicts: {id, label, description, approx_size_mm [w, d, h], upright_required}",
         "- api.time_budget_s() -> the order's time budget in seconds (motion time + tool time)",
-        f"- api.pick(id, grip='medium', speed='normal'): grasp the item. grip in {GRIPS} (stronger squeezes harder); "
-        f"speed in {SPEEDS}. Approx motion time per item: slow {SPEED_TIME_S['slow']}s, normal "
-        f"{SPEED_TIME_S['normal']}s, fast {SPEED_TIME_S['fast']}s.",
+        f"- api.pick(id, grip_N, speed_mps): grasp the item and lift it. grip_N = squeeze force per finger in newtons, "
+        f"{GRIP_N_RANGE[0]:g}-{GRIP_N_RANGE[1]:g}. Too little and the item slips out (heavier or slippery items need "
+        f"more, and faster moves need more); too much and the packaging crushes. speed_mps = arm speed, "
+        f"{SPEED_RANGE[0]:g}-{SPEED_RANGE[1]:g} m/s. Fast moves shake the item, so they need more grip and can spike "
+        f"the squeeze on fragile packaging. Approx motion time per item: {times}.",
+        "  Gripper datasheet: to hold an item of m kg you need roughly grip_N >= k * m / friction, with k ~6 at "
+        "0.15 m/s, ~7 at 0.35 m/s, ~8 at 0.5 m/s, ~11 at 1.0 m/s. Friction of the fingertips on dry cardboard or "
+        "plastic is ~0.35-0.5; damp surfaces are far more slippery. Squeezing much harder than needed doesn't make the "
+        "hold safer and can crush packaging; about 1.3x the minimum is the usual choice. How hard packaging can be "
+        "squeezed varies by product and condition.",
         "- api.place(id, slot): put the held item in a free slot ('S1', 'S2' or 'S3'). Call right after pick. "
         "The arm keeps items vertical, so they are always set down upright.",
     ]
     if tools.get("weigh"):
-        lines.append(f"- api.weigh(id) -> 'light' | 'medium' | 'heavy' (noisy). Costs {TOOL_COST_S:.0f}s of budget.")
+        lines.append(f"- api.weigh(id) -> mass in kg (float, about +/-{WEIGH_NOISE:.0%} noise). "
+                     f"Costs {TOOL_COST_S:.0f}s of budget.")
     if tools.get("squeeze_test"):
-        lines.append(f"- api.squeeze_test(id) -> 'firm' | 'gives slightly' | 'soft' (noisy). How much the packaging "
-                     f"gives under a light squeeze. Costs {TOOL_COST_S:.0f}s of budget.")
+        lines.append(f"- api.squeeze_test(id) -> float: about how many newtons per finger the packaging takes before "
+                     f"it starts to give (about +/-{SQUEEZE_NOISE:.0%} noise). Costs {TOOL_COST_S:.0f}s of budget.")
+    if tools.get("surface_check"):
+        lines.append(f"- api.surface_check(id) -> 'dry' | 'damp' (wrong about {SURFACE_ERROR:.0%} of the time). "
+                     f"Damp surfaces are slippery. Costs {TOOL_COST_S:.0f}s of budget.")
     lines += [
         "- api.report_gap(text): if you lack information you need to choose a grip or speed safely, say what is "
         "missing (one short sentence). Free; the engineers read these.",
+        "The same product can arrive in a different condition from order to order (damp, dented, overfilled, "
+        "half empty), which changes the safe grip.",
         "Items placed after the time budget runs out count as failures. No imports; plain Python only.",
     ]
     return "\n".join(lines)
@@ -65,9 +89,10 @@ class RecordingAPI:
         out = []
         for it in self._order["items"]:
             v = catalog.visible(it["product_id"])
+            t = self._truth[it["id"]]
             desc = v["description"]
-            if self._truth[it["id"]]["condition"] == "wet":
-                desc += " (cold from the fridge, condensation on the surface)"
+            if t.get("hinted"):
+                desc += f" ({HINTS[t['condition']]})"
             out.append({"id": it["id"], "label": v["label"], "description": desc,
                         "approx_size_mm": v["approx_size_mm"], "upright_required": v["upright_required"]})
         return out
@@ -80,42 +105,55 @@ class RecordingAPI:
             raise PlanError(f"unknown item id {iid!r}")
         return iid
 
-    # ---- tools ----
+    # ---- tools: noisy numbers from the hidden truth, never the truth itself ----
+    def _tool(self, name: str, iid) -> str:
+        if not self._tools.get(name):
+            raise PlanError(f"api.{name} is not enabled")
+        return self._check_id(iid)
+
     def weigh(self, iid):
-        if not self._tools.get("weigh"):
-            raise PlanError("api.weigh is not enabled")
-        iid = self._check_id(iid)
-        m = self._truth[iid]["mass_kg"] * float(self._rng[iid].normal(1.0, 0.12))
-        ans = "light" if m < 0.2 else "medium" if m < 0.5 else "heavy"
+        iid = self._tool("weigh", iid)
+        ans = round(self._truth[iid]["mass_kg"] * float(self._rng[iid].normal(1.0, WEIGH_NOISE)), 2)
         self.tool_calls.append({"tool": "weigh", "item": iid, "answer": ans})
         return ans
 
     def squeeze_test(self, iid):
-        if not self._tools.get("squeeze_test"):
-            raise PlanError("api.squeeze_test is not enabled")
-        iid = self._check_id(iid)
-        c = self._truth[iid]["crush_limit_N"] * float(self._rng[iid].normal(1.0, 0.12))
-        ans = "soft" if c < 11 else "gives slightly" if c < 30 else "firm"
+        iid = self._tool("squeeze_test", iid)
+        ans = round(self._truth[iid]["crush_limit_N"] * float(self._rng[iid].normal(1.0, SQUEEZE_NOISE)) * 2) / 2
+        ans = max(0.5, ans)
         self.tool_calls.append({"tool": "squeeze_test", "item": iid, "answer": ans})
+        return ans
+
+    def surface_check(self, iid):
+        iid = self._tool("surface_check", iid)
+        damp = self._truth[iid]["condition"] == "wet"
+        if float(self._rng[iid].random()) < SURFACE_ERROR:
+            damp = not damp
+        ans = "damp" if damp else "dry"
+        self.tool_calls.append({"tool": "surface_check", "item": iid, "answer": ans})
         return ans
 
     def report_gap(self, text) -> None:
         self.gaps.append(str(text)[:300])
 
     # ---- actions ----
-    def pick(self, iid, grip="medium", speed="normal") -> None:
+    def pick(self, iid, grip_N=None, speed_mps=None) -> None:
         iid = self._check_id(iid)
-        if grip not in GRIPS:
-            raise PlanError(f"grip must be one of {GRIPS}")
-        if speed not in SPEEDS:
-            raise PlanError(f"speed must be one of {SPEEDS}")
+        try:
+            grip_N, speed_mps = float(grip_N), float(speed_mps)
+        except (TypeError, ValueError):
+            raise PlanError("pick needs numbers: api.pick(id, grip_N, speed_mps)")
+        if not GRIP_N_RANGE[0] <= grip_N <= GRIP_N_RANGE[1]:
+            raise PlanError(f"grip_N must be {GRIP_N_RANGE[0]:g}-{GRIP_N_RANGE[1]:g}")
+        if not SPEED_RANGE[0] <= speed_mps <= SPEED_RANGE[1]:
+            raise PlanError(f"speed_mps must be {SPEED_RANGE[0]:g}-{SPEED_RANGE[1]:g}")
         if self._pending is not None:
             raise PlanError("place the held item before picking another")
         if any(a["item"] == iid for a in self.actions):
             raise PlanError(f"item {iid} was already packed")
-        self._pending = {"item": iid, "grip": grip, "speed": speed}
+        self._pending = {"item": iid, "grip_N": round(grip_N, 2), "speed_mps": round(speed_mps, 3)}
 
-    def place(self, iid, slot="S1", on_top_of=None, against_wall=None) -> None:
+    def place(self, iid, slot="S1") -> None:
         iid = self._check_id(iid)
         if self._pending is None or self._pending["item"] != iid:
             raise PlanError(f"pick {iid} before placing it")
@@ -154,7 +192,7 @@ class _PublicAPI:
     """Only public methods of the recording API are reachable from the program."""
 
     def __init__(self, rec: RecordingAPI):
-        for name in ("items", "time_budget_s", "weigh", "squeeze_test", "report_gap", "pick", "place"):
+        for name in ("items", "time_budget_s", *TOOLS, "report_gap", "pick", "place"):
             setattr(self, name, getattr(rec, name))
 
 

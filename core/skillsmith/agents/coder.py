@@ -13,7 +13,7 @@ MODELS = {"cheap": CODER_MODEL, "strong": STRONG_MODEL}
 def build_prompt(genome: dict, order_view: dict, lessons: list[dict], skills: list[dict],
                  previous_error: str | None = None) -> str:
     parts = [api_doc(genome["tools"])]
-    parts.append(f"If you omit speed, use speed='{genome['defaults']['speed']}'.")
+    parts.append(f"When unsure about speed, the packing team's default is {genome['defaults']['speed_mps']} m/s.")
     if genome["rules"]:
         parts.append("Rules from the packing team:\n" + "\n".join(f"- {r}" for r in genome["rules"]))
     if lessons:
@@ -34,7 +34,7 @@ STUB_CODE = """```python
 def pack(api):
     slots = ['S1', 'S2', 'S3']
     for item, slot in zip(api.items(), slots):
-        api.pick(item['id'], grip='medium', speed='normal')
+        api.pick(item['id'], grip_N=8, speed_mps=0.35)
         api.place(item['id'], slot)
 ```"""
 

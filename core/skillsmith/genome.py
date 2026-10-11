@@ -3,12 +3,13 @@ import copy
 
 V0 = {
     "rules": [],
-    "tools": {"weigh": False, "squeeze_test": False},
+    "tools": {"weigh": False, "squeeze_test": False, "surface_check": False},
     "retrieval": {"lessons_k": 0, "skills_k": 0, "min_score": 0.75},
-    "defaults": {"carry_height_mm": 150, "speed": "normal"},
+    "defaults": {"carry_height_mm": 150, "speed_mps": 0.35},
     "retry": {"max_retries": 0},
     "models": {"coder": "cheap", "critic": "strong", "meta": "strong"},
-    "locked": {"max_grip_level": "max", "time_budget_s": 18, "workspace": "table", "referee_version": 1},
+    "locked": {"max_grip_N": 45, "time_budget_s": "per order", "tool_cost_s": 3, "workspace": "table",
+               "referee_version": 2},
 }
 
 PATCH_OPS = {
@@ -17,11 +18,11 @@ PATCH_OPS = {
     "enable_tool": {"name": str},
     "disable_tool": {"name": str},
     "set_retrieval": {"lessons_k": int, "skills_k": int, "min_score": float},
-    "set_default": {"carry_height_mm": int, "speed": str},
+    "set_default": {"carry_height_mm": int, "speed_mps": float},
     "set_retry": {"max_retries": int},
     "set_model": {"role": str, "tier": str},
 }
-TOOLS = ("weigh", "squeeze_test")
+TOOLS = ("weigh", "squeeze_test", "surface_check")
 
 
 class PatchRejected(Exception):
@@ -67,8 +68,8 @@ def validate(genome: dict, patch: dict) -> None:
             raise PatchRejected("one knob per patch: set_default takes exactly one argument")
         if "carry_height_mm" in args and not 80 <= int(args["carry_height_mm"]) <= 300:
             raise PatchRejected("carry_height_mm must be 80-300")
-        if "speed" in args and args["speed"] not in ("slow", "normal", "fast"):
-            raise PatchRejected("speed must be slow, normal or fast")
+        if "speed_mps" in args and not 0.1 <= float(args["speed_mps"]) <= 1.0:
+            raise PatchRejected("speed_mps must be 0.1-1.0")
     elif op == "set_retry":
         if not 0 <= int(args.get("max_retries", -1)) <= 2:
             raise PatchRejected("max_retries must be 0-2")
@@ -92,7 +93,7 @@ def apply(genome: dict, patch: dict) -> dict:
     elif op == "set_retrieval":
         g["retrieval"].update({k: (float(v) if k == "min_score" else int(v)) for k, v in a.items()})
     elif op == "set_default":
-        g["defaults"].update(a)
+        g["defaults"].update({k: (float(v) if k == "speed_mps" else int(v)) for k, v in a.items()})
     elif op == "set_retry":
         g["retry"]["max_retries"] = int(a["max_retries"])
     elif op == "set_model":

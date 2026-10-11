@@ -17,7 +17,7 @@ def scene_spec(order: dict, truth: dict) -> dict:
     return {
         "items": [{"id": it["id"], "product_id": it["product_id"], "stage_pos": [float(v) for v in STAGING[k]]}
                   for k, it in enumerate(order["items"])],
-        "truth": {iid: {k: t[k] for k in ("mass_kg", "friction", "com_offset_m", "crush_limit_N")}
+        "truth": {iid: {k: t[k] for k in ("mass_kg", "friction", "com_offset_m", "crush_limit_N", "condition")}
                   for iid, t in truth.items()},
     }
 
@@ -68,7 +68,8 @@ def execute(order: dict, truth: dict, plan_rec: dict, carry_height_mm: int, vide
     try:
         for a in plan_rec["actions"]:
             sim.run_item(a)
-            verdicts.append(sim.judge(a["item"], over_budget=sim.elapsed_s() > order["time_budget_s"]))
+            verdicts.append({**sim.judge(a["item"], over_budget=sim.elapsed_s() > order["time_budget_s"]),
+                             "elapsed_s": round(sim.elapsed_s(), 2)})
     except UnstableSim as e:
         done = {v["id"] for v in verdicts}
         verdicts += [{"id": a["item"], "ok": False, "family": "collision", "detail": f"physics unstable: {e}",

@@ -210,7 +210,7 @@ def do_verify(step: dict) -> None:
         for v in items:
             if v["ok"]:
                 a = next(a for a in run["actions"] if a["item"] == v["id"])
-                _upsert_skill(v["product_id"], a, step["version"], step["order_run_id"])
+                _upsert_skill(v["product_id"], a, v.get("inspected", "dry"), step["version"], step["order_run_id"])
 
     def writes(s):
         d.runs.update_one({"_id": step["order_run_id"]}, {"$set": {
@@ -225,19 +225,32 @@ def _genome_summary(g: dict) -> str:
             f"skills_k={g['retrieval']['skills_k']} carry={g['defaults']['carry_height_mm']}mm")
 
 
-def _upsert_skill(product_id: str, action: dict, version: int, source: str) -> None:
+CONDITION_TEXT = {"dry": "normal condition", "wet": "damp, with condensation", "damaged": "dented box",
+                  "overfilled": "overfilled, heavier than usual", "half_empty": "half empty, lighter than usual",
+                  "shifted_contents": "contents shifted to one end"}
+
+
+def _fmt_range(lo: float, hi: float, unit: str) -> str:
+    return f"{lo:g} {unit}" if abs(hi - lo) < 1e-9 else f"{lo:g}-{hi:g} {unit}"
+
+
+def _upsert_skill(product_id: str, action: dict, condition: str, version: int, source: str) -> None:
+    """One skill per product and inspected condition. Repeated clean packs widen its numeric range, so the coder
+    sees "cupcakes, dented box: clean at 3.5-4.5 N, 0.15-0.25 m/s" rather than one lucky setting."""
+    from pymongo import ReturnDocument
     p = catalog.BY_ID[product_id]
-    sid = f"skill:{product_id}:{action['grip']}:{action['speed']}"
-    d = dbm.db()
-    if d.memory.find_one({"_id": sid}, {"_id": 1}):
-        d.memory.update_one({"_id": sid}, {"$inc": {"uses": 1}})
-        return
-    text = (f"{p.label} ({p.description}, about {catalog.visible(product_id)['approx_size_mm']} mm): packed clean "
-            f"with grip='{action['grip']}', speed='{action['speed']}'.")
-    d.memory.update_one({"_id": sid}, {"$setOnInsert": {
-        "kind": "skill", "text": text, "needs_embed": True, "active": True, "class": p.cls, "family": None,
-        "product_id": product_id, "grip": action["grip"], "speed": action["speed"], "uses": 1,
-        "version_created": version, "source_run": source, "created_at": dbm.now()}}, upsert=True)
+    sid = f"skill:{product_id}:{condition}"
+    g, v = float(action["grip_N"]), float(action["speed_mps"])
+    doc = dbm.db().memory.find_one_and_update({"_id": sid}, {
+        "$min": {"grip_min": g, "speed_min": v}, "$max": {"grip_max": g, "speed_max": v}, "$inc": {"uses": 1},
+        "$setOnInsert": {"kind": "skill", "needs_embed": True, "active": True, "class": p.cls, "family": None,
+                         "product_id": product_id, "condition": condition, "version_created": version,
+                         "source_run": source, "created_at": dbm.now()}},
+        upsert=True, return_document=ReturnDocument.AFTER)
+    text = (f"{p.label} ({p.description}, about {catalog.visible(product_id)['approx_size_mm']} mm), "
+            f"{CONDITION_TEXT[condition]}: packed clean with grip {_fmt_range(doc['grip_min'], doc['grip_max'], 'N')} "
+            f"per finger at {_fmt_range(doc['speed_min'], doc['speed_max'], 'm/s')} ({doc['uses']} clean packs).")
+    dbm.db().memory.update_one({"_id": sid, "uses": doc["uses"]}, {"$set": {"text": text}})
 
 
 def _stitch(clips: list[str], orid: str) -> str | None:

@@ -1,5 +1,5 @@
 """Arm control: damped-least-squares IK on a separate MjData holding the commanded joints, min-jerk Cartesian
-segments, and a force-controlled gripper with four grip levels.
+segments, and a force-controlled gripper commanded in newtons per finger.
 
 Every motion advances the physics with `Robot.step`, which calls the registered observers (referee monitor,
 video recorder) after each physics step.
@@ -14,12 +14,21 @@ from .scene import TABLE_Z, TOTE_FLOOR_Z
 
 TCP_OFFSET = np.array([0.0, 0.0, 0.1034])
 GRASP_DEPTH = 0.025  # pads centred this far below the item top; the hand body sits ~2 cm above it
-# Tendon force (N) when closing. Each finger gets about half. Calibrated in calibrate_grips().
-GRIP_FORCE = {"soft": 9.0, "medium": 20.0, "firm": 40.0, "max": 85.0}
-GRIP_LEVELS = list(GRIP_FORCE)
-SPEED_MPS = {"slow": 0.15, "normal": 0.35, "fast": 0.8}
-SETTLE_S = {"slow": 0.30, "normal": 0.15, "fast": 0.02}
-MAX_JOINT_STEP = {"slow": 1.5, "normal": 2.5, "fast": 5.0}  # rad/s clip on the commanded joints
+# Each finger gets ~0.53 of the tendon force (measured: tendon 9/20/40/85 N -> 4.7/10.6/21.4/45.8 N per finger
+# in a static hold), so a per-finger grip of G newtons needs a tendon force of G * TENDON_PER_FINGER.
+TENDON_PER_FINGER = 1.88
+GRIP_N_RANGE = (2.0, 45.0)
+SPEED_RANGE = (0.1, 1.0)  # m/s, TCP speed of the min-jerk segments
+
+
+def settle_s(speed: float) -> float:
+    """Pause before release; fast moves barely wait, slow moves let the item stop swinging."""
+    return float(np.interp(speed, [0.15, 0.35, 0.8], [0.30, 0.15, 0.02]))
+
+
+def max_joint_step(speed: float) -> float:
+    """rad/s clip on the commanded joints, so the IK can keep up with faster segments."""
+    return float(np.interp(speed, [0.15, 0.35, 0.8, 1.0], [1.5, 2.5, 5.0, 6.0]))
 GRIPPER = 7  # actuator index of the finger tendon
 OPEN_GAIN = 100 / 255 * 0.04  # Menagerie position-servo gain
 
@@ -47,9 +56,9 @@ class Robot:
         self.q_des = data.qpos[idx["arm_qpos"]].copy()
         self.q_home = self.q_des.copy()
         self.observers: list[Callable[[], None]] = []
-        self.speed = "normal"
+        self.speed = 0.35
         self.motion_time = 0.0
-        self.grip = {"mode": "open", "level": None, "width": 0.04}
+        self.grip = {"mode": "open", "grip_N": None, "width": 0.04}
         self._jacp = np.zeros((3, model.nv))
         self._jacr = np.zeros((3, model.nv))
 
@@ -63,7 +72,7 @@ class Robot:
         if g["mode"] == "open":
             self.open(g["width"], wait=0)
         else:
-            self.close(g["level"], wait=0)
+            self.close(g["grip_N"], wait=0)
 
     # ---------- kinematics ----------
     def tcp(self, data: mujoco.MjData | None = None) -> tuple[np.ndarray, np.ndarray]:
@@ -105,7 +114,7 @@ class Robot:
         if seconds > 0:
             self.step(max(1, int(round(seconds / self.m.opt.timestep))))
 
-    def move(self, p_goal, yaw: float, speed: str | None = None, min_t: float = 0.25) -> None:
+    def move(self, p_goal, yaw: float, speed: float | None = None, min_t: float = 0.25) -> None:
         """Straight-line min-jerk TCP move to p_goal with a top-down hand at yaw."""
         speed = speed or self.speed
         self.ik.qpos[self.idx["arm_qpos"]] = self.q_des
@@ -115,10 +124,10 @@ class Robot:
         r_goal = topdown_rot(yaw)
         dist = float(np.linalg.norm(p_goal - p0))
         ang = float(np.linalg.norm(0.5 * sum(np.cross(r0[:, i], r_goal[:, i]) for i in range(3))))
-        T = max(min_t, dist / SPEED_MPS[speed], ang / 1.5)
+        T = max(min_t, dist / speed, ang / 1.5)
         dt = self.m.opt.timestep
         n = int(math.ceil(T / dt))
-        max_step = MAX_JOINT_STEP[speed] * dt
+        max_step = max_joint_step(speed) * dt
         for k in range(1, n + 1):
             s = _min_jerk(k / n)
             p = p0 + s * (p_goal - p0)
@@ -141,17 +150,18 @@ class Robot:
         m.actuator_gainprm[GRIPPER, 0] = OPEN_GAIN
         m.actuator_biasprm[GRIPPER, :3] = [0, -100, -10]
         self.d.ctrl[GRIPPER] = half * 100 / OPEN_GAIN
-        self.grip = {"mode": "open", "level": None, "width": width}
+        self.grip = {"mode": "open", "grip_N": None, "width": width}
         self.wait(wait)
 
-    def close(self, level: str, wait: float = 0.45) -> None:
-        """Force-controlled close. The force ramps up over 0.15 s so the fingers don't slam into the item."""
+    def close(self, grip_N: float, wait: float = 0.45) -> None:
+        """Force-controlled close to about grip_N per finger. The force ramps up over 0.15 s so the fingers don't
+        slam into the item."""
         m = self.m
-        force = GRIP_FORCE[level]
+        force = float(grip_N) * TENDON_PER_FINGER
         m.actuator_gainprm[GRIPPER, 0] = 0.0
         m.actuator_biasprm[GRIPPER, :3] = [0, 0, -20]
         self.d.ctrl[GRIPPER] = 0.0
-        self.grip = {"mode": "closed", "level": level, "width": 0.0}
+        self.grip = {"mode": "closed", "grip_N": float(grip_N), "width": 0.0}
         n_ramp = max(1, int(0.15 / m.opt.timestep)) if wait > 0 else 1
         for k in range(1, n_ramp + 1):
             m.actuator_biasprm[GRIPPER, 0] = -force * k / n_ramp
@@ -180,7 +190,7 @@ class Robot:
             yaw += math.pi
         return yaw
 
-    def pick(self, iid: str, grip: str, carry_height: float, on_grasp: Callable[[], None] | None = None) -> dict:
+    def pick(self, iid: str, grip_N: float, carry_height: float, on_grasp: Callable[[], None] | None = None) -> dict:
         """Grasp item iid just below its top (the fingers are ~5 cm long) and lift it to the carry height,
         i.e. with its bottom `carry_height` metres above the table."""
         pos, _ = self.item_pose(iid)
@@ -192,7 +202,7 @@ class Robot:
         self.open(narrow + 0.03, wait=0.05)
         self.move([pos[0], pos[1], pos[2] + H + 0.06], yaw)
         self.move([pos[0], pos[1], pos[2] + grasp_offset], yaw)
-        self.close(grip)
+        self.close(grip_N)
         if on_grasp:
             on_grasp()
         z_carry = TABLE_Z + carry_height + grasp_offset
@@ -204,7 +214,7 @@ class Robot:
         x, y = slot_xy
         self.move([x, y, held["z_carry"]], held["yaw"])
         self.move([x, y, TOTE_FLOOR_Z + held["grasp_offset"] + 0.006], held["yaw"])
-        self.wait(SETTLE_S[self.speed])
+        self.wait(settle_s(self.speed))
         if on_release:
             on_release()
         self.open(held["narrow"] + 0.03, wait=0.25)

@@ -14,11 +14,12 @@ only if it clearly helps without regressions, extra cost or slower cycles.
 Patch whitelist (op -> args):
 - add_rule {text <= 200 chars}: a standing instruction for the coder (max 8 rules)
 - remove_rule {index}
-- enable_tool / disable_tool {name: "weigh" | "squeeze_test"}: weigh -> light/medium/heavy, squeeze_test ->
-  firm/gives slightly/soft. Each tool call costs 3 s of the order's time budget.
+- enable_tool / disable_tool {name: "weigh" | "squeeze_test" | "surface_check"}: noisy readings for the coder:
+  weigh -> kg (+/-12%), squeeze_test -> newtons per finger the packaging takes before giving (+/-25%),
+  surface_check -> dry/damp (10% wrong). Each tool call costs 3 s of the order's time budget.
 - set_retrieval {exactly ONE of: lessons_k 0-5 | skills_k 0-5 | min_score 0-1}: how many critic lessons / proven
   per-product skills (both stored in Atlas Vector Search) are retrieved into the coder's prompt
-- set_default {exactly ONE of: carry_height_mm 80-300 | speed slow|normal|fast}
+- set_default {exactly ONE of: carry_height_mm 80-300 | speed_mps 0.1-1.0 (the coder's default arm speed)}
 One knob per patch, so the gate can attribute the effect; multi-knob patches are rejected by the validator.
 - set_retry {max_retries 0-2}: re-ask the coder when its program errors
 - set_model {role coder|critic|meta, tier cheap|strong}
@@ -57,7 +58,7 @@ def _ask(user: str, stub: str) -> tuple[dict, dict, float]:
 
 def propose(ctx: dict, run_query) -> dict:
     """ctx: genome, history, family rates, signals, gaps, memory stats, databases. run_query(q) -> result or error."""
-    stub = json.dumps({"op": "add_rule", "args": {"text": "Use grip='soft' for thin cartons and fragile snacks."},
+    stub = json.dumps({"op": "add_rule", "args": {"text": "Use at most 6 N per finger on thin cartons."},
                        "rationale": "stub", "predicted_effect": "fewer crushes"})
     user = "Current state:\n" + _context(ctx)
     data, out, cost = _ask(user, stub)

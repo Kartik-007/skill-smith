@@ -29,12 +29,12 @@ class OrderSim:
 
     # ---------- execution ----------
     def run_item(self, action: dict) -> None:
-        """action = {"item", "grip", "speed", "slot"}. Raises UnstableSim if physics blows up."""
+        """action = {"item", "grip_N", "speed_mps", "slot"}. Raises UnstableSim if physics blows up."""
         r, mon = self.robot, self.monitor
         iid = action["item"]
-        r.speed = action["speed"]
+        r.speed = float(action["speed_mps"])
         try:
-            held = r.pick(iid, action["grip"], self.carry_height, on_grasp=lambda: mon.start_hold(iid))
+            held = r.pick(iid, float(action["grip_N"]), self.carry_height, on_grasp=lambda: mon.start_hold(iid))
             r.place(iid, SLOTS[action["slot"]], held, on_release=mon.end_hold)
         finally:
             mon.end_hold()
@@ -47,7 +47,11 @@ class OrderSim:
     def judge(self, iid: str, over_budget: bool = False) -> dict:
         t = self.spec["truth"][iid]
         product = catalog.BY_ID[self.idx["items"][iid]["product_id"]]
-        return referee.judge_item(self.monitor, iid, t["crush_limit_N"], product.upright_required, over_budget)
+        v = referee.judge_item(self.monitor, iid, t["crush_limit_N"], product.upright_required, over_budget)
+        # After-pack inspection: the condition label (never the numbers) goes on the record, so skills and the
+        # critic can say "that was the damp one".
+        v["inspected"] = t.get("condition", "dry")
+        return v
 
     def tint(self, renderer, verdicts: list[dict]) -> None:
         for v in verdicts:

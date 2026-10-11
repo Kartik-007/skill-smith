@@ -86,7 +86,9 @@ class Heartbeat:
                 {"_id": self.step["_id"], "lease.token": self.step["lease"]["token"], "status": "leased"},
                 {"$set": {"lease.expires_at": dbm.now() + timedelta(seconds=LEASE_S), "updated_at": dbm.now()}})
             if res.matched_count == 0:
-                self.lost = True
+                # Either another worker took the lease, or our own commit just marked the step done between ticks.
+                doc = dbm.db().work_queue.find_one({"_id": self.step["_id"]}, {"status": 1, "lease": 1})
+                self.lost = not (doc and doc["status"] == "done" and doc.get("lease") is None)
                 return
 
     def __enter__(self):

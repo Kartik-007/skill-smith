@@ -11,10 +11,10 @@ import time
 from pymongo.errors import OperationFailure
 
 from . import db as dbm
-from . import gate, genome, memory, observe
+from . import gate, genome, memory, observe, referee
 from . import queue as q
 from .agents import critic, meta
-from .config import CODER_MODEL, STRONG_MODEL
+from .config import CODER_MODEL, DB_NAME, STRONG_MODEL, TRUTH_DB_NAME
 
 REPEATS = 2
 
@@ -104,8 +104,10 @@ def run_critic(version: int, batch_id: str) -> None:
                 a = acts.get(it["id"], {})
                 prod = dbm.db().products.find_one({"_id": it["product_id"]}, {"label": 1, "class": 1, "description": 1})
                 failures.append({"product": prod["label"], "packaging": prod["description"], "class": prod["class"],
-                                 "family": it["family"], "detail": it["detail"], "grip": a.get("grip"),
-                                 "speed": a.get("speed"), "tools": tools.get(it["id"], [])})
+                                 "family": it["family"], "detail": it["detail"], "grip_N": a.get("grip_N"),
+                                 "speed_mps": a.get("speed_mps"), "inspected_condition": it.get("inspected"),
+                                 "peak_squeeze": referee.coarse_force(it.get("peak_N", 0.0)),
+                                 "tools": tools.get(it["id"], [])})
     if not failures:
         return
     known = [m["text"] for m in dbm.db().memory.find({"kind": "lesson", "active": True}, {"text": 1})]
@@ -205,7 +207,7 @@ def generation(workers: int, forced_patch: dict | None = None) -> dict:
             "raindrop_signals": _signals(inc["version"]),
             "memory": {"lessons": d.memory.count_documents({"kind": "lesson"}),
                        "skills": d.memory.count_documents({"kind": "skill"})},
-            "databases": {"skillsmith": sorted(d.list_collection_names()), "skillsmith_truth": ["scene_truth"]},
+            "databases": {DB_NAME: sorted(d.list_collection_names()), TRUTH_DB_NAME: ["scene_truth"]},
         }
         if forced_patch:
             prop = {"patch": forced_patch["patch"], "rationale": forced_patch.get("rationale", ""),
