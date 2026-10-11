@@ -30,7 +30,8 @@ export function LiveOrderForm({
   const [sent, setSent] = useState<Sent | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const chosen = productId || products[0]?.id || "";
+  const firstByName = [...products].sort((a, b) => shortName(a.id, a.label).localeCompare(shortName(b.id, b.label)))[0];
+  const chosen = productId || firstByName?.id || "";
   const tracked = sent ? requests.find((r) => r.id === sent.id) : null;
 
   async function submit(e: React.FormEvent) {
@@ -77,11 +78,14 @@ export function LiveOrderForm({
         aria-label="Snack"
         className="h-9 w-[11rem] min-w-0 rounded-lg border border-line-2 bg-ink/70 px-2 text-[0.95rem] text-text focus:border-leaf focus:outline-none"
       >
-        {products.map((p) => (
-          <option key={p.id} value={p.id}>
-            {shortName(p.id, p.label)}
-          </option>
-        ))}
+        {products
+          .map((p) => ({ id: p.id, name: shortName(p.id, p.label) }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
       </select>
       <button
         type="submit"

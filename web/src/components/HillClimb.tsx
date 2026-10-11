@@ -127,7 +127,18 @@ export function HillClimb({ versions, sample, fresh }: { versions: HarnessVersio
       placed.push({ x0: X(i) - 9, x1: X(i) + 9, y0: Y(p.y) - 9, y1: Y(p.y) + 9 });
       if (p.kind === "kept") placed.push({ x0: X(i) - 44, x1: X(i) - 9, y0: Y(p.y) - 9, y1: Y(p.y) + 9 }); // "+11", left of the riser
     });
-    if (baseH != null) placed.push({ x0: w - padR - 64, x1: w - padR, y0: Y(baseH) + 2, y1: Y(baseH) + 18 }); // "v0 50%"
+    // "v0 50%" at the right end of the dashed line, below it unless a mark sits there
+    let baseLabelY: number | null = null;
+    if (baseH != null) {
+      for (const dy of [15, -6, 28]) {
+        const b = { x0: w - padR - 64, x1: w - padR, y0: Y(baseH) + dy - 12, y1: Y(baseH) + dy + 3 };
+        if (!overlaps(b) || dy === 28) {
+          placed.push(b);
+          baseLabelY = Y(baseH) + dy;
+          break;
+        }
+      }
+    }
     const left = padL + 2;
     const right = w - padR;
     // above: dy is the baseline of the LAST line; below: dy is the baseline of the FIRST line
@@ -195,7 +206,7 @@ export function HillClimb({ versions, sample, fresh }: { versions: HarnessVersio
     for (const i of metaPriority) {
       if (pts.every((_, j) => !metaShown[j] || Math.abs(X(j) - X(i)) >= META_W)) metaShown[i] = true;
     }
-    return { padL, padR, padT, padB, plotW, plotH, spacing, X, Y, ticks, d, labels, compact, metaShown };
+    return { padL, padR, padT, padB, plotW, plotH, spacing, X, Y, ticks, d, labels, compact, metaShown, baseLabelY };
   }, [w, h, pts, baseH]);
 
   const hp = hover != null ? pts[hover] : null;
@@ -243,7 +254,7 @@ export function HillClimb({ versions, sample, fresh }: { versions: HarnessVersio
                   strokeDasharray="5 5"
                   opacity={0.75}
                 />
-                <text x={w - chart.padR} y={chart.Y(baseH) + 15} textAnchor="end" fontSize={11.5} fill="#8fa9b3" className="font-mono">
+                <text x={w - chart.padR} y={chart.baseLabelY ?? chart.Y(baseH) + 15} textAnchor="end" fontSize={11.5} fill="#8fa9b3" className="font-mono">
                   v0 {pct(baseH)}
                 </text>
               </g>
