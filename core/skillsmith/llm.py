@@ -46,6 +46,48 @@ def chat(model: str, system: str, user: str, temperature: float = 0.2, max_token
     raise RuntimeError(f"LLM call failed after retries: {last_err}")
 
 
+def _cost(u) -> float:
+    cost = getattr(u, "cost", None)
+    if cost is None and getattr(u, "model_extra", None):
+        cost = u.model_extra.get("cost")
+    return float(cost or 0.0)
+
+
+def chat_tools(model: str, messages: list[dict], tools: list[dict] | None, temperature: float = 0.3,
+               max_tokens: int = 4000) -> dict:
+    """One turn of a function-calling conversation. tools = [{"name", "description", "parameters"}], or None to
+    force a plain answer. Returns {"message": assistant message dict to append, "text", "tool_calls":
+    [{"id", "name", "args"}], "cost_usd", "model"}."""
+    import json as _json
+    last_err = None
+    for attempt in range(4):
+        try:
+            kw = {}
+            if tools:
+                kw["tools"] = [{"type": "function", "function": t} for t in tools]
+            resp = client().chat.completions.create(model=model, temperature=temperature, max_tokens=max_tokens,
+                                                    messages=messages, extra_body={"usage": {"include": True}}, **kw)
+            msg = resp.choices[0].message
+            calls = []
+            for tc in msg.tool_calls or []:
+                try:
+                    args = _json.loads(tc.function.arguments or "{}")
+                except Exception:
+                    args = {}
+                calls.append({"id": tc.id, "name": tc.function.name, "args": args if isinstance(args, dict) else {}})
+            out = {"role": "assistant", "content": msg.content or ""}
+            if msg.tool_calls:
+                out["tool_calls"] = [{"id": tc.id, "type": "function",
+                                      "function": {"name": tc.function.name, "arguments": tc.function.arguments or "{}"}}
+                                     for tc in msg.tool_calls]
+            return {"message": out, "text": msg.content or "", "tool_calls": calls, "cost_usd": _cost(resp.usage),
+                    "model": resp.model or model}
+        except Exception as e:  # network or rate limit: back off and retry
+            last_err = e
+            time.sleep(2 * (attempt + 1))
+    raise RuntimeError(f"tool chat failed: {last_err}")
+
+
 def extract_code(text: str) -> str:
     m = re.search(r"```(?:python)?\s*\n(.*?)```", text, re.S)
     if m:
