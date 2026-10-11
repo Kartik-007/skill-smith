@@ -34,10 +34,21 @@ def truth_db(caller: str):
 
 @lru_cache(maxsize=1)
 def harness_client() -> MongoClient | None:
-    """Optional restricted login (readWrite on skillsmith only). When set, Atlas itself enforces the wall."""
+    """Optional restricted login (readWrite on skillsmith only). It's only trusted after a live check that Atlas
+    really refuses it on the truth database; otherwise we stay on the code-level wall."""
     import os
     uri = os.environ.get("MONGODB_URI_HARNESS")
-    return MongoClient(uri, appname="skill-smith-harness", serverSelectionTimeoutMS=20000) if uri else None
+    if not uri:
+        return None
+    hc = MongoClient(uri, appname="skill-smith-harness", serverSelectionTimeoutMS=20000)
+    try:
+        hc[TRUTH_DB_NAME].scene_truth.find_one({}, {"_id": 1})
+    except OperationFailure as e:
+        if e.code == 13:
+            return hc  # Atlas enforces the wall
+        raise
+    print("[db] MONGODB_URI_HARNESS can read the truth database; ignoring it (grant readWrite on skillsmith only)")
+    return None
 
 
 def enforcement() -> str:

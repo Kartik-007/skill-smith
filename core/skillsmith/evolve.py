@@ -116,7 +116,16 @@ def run_critic(version: int, batch_id: str) -> None:
 
 
 def _signals(version: int) -> dict:
-    """What the meta-agent sees from Raindrop. Without a query key this is read from the same facts in Atlas."""
+    """What the meta-agent sees from Raindrop (Query API). Falls back to the same facts mirrored in Atlas."""
+    gaps = dbm.db().runs.distinct("gaps", {"version": version, "suite": "T"})
+    rd = observe.query_signals(version, "T")
+    if rd:
+        rd["capability_gaps"] = gaps[:8]
+        c = rd["orders_with_signal"]
+        dbm.feed("signal", f"Raindrop (v{version}, {rd['order_events']} training orders): "
+                 + ", ".join(f"{k.replace('_', ' ')} on {n}" for k, n in c.items() if n), version=version,
+                 source="raindrop", counts=c)
+        return rd
     pipeline = [
         {"$match": {"version": version, "suite": "T", "status": "done"}},
         {"$unwind": "$items"},
@@ -124,7 +133,6 @@ def _signals(version: int) -> dict:
     ]
     names = {"crush": "crushed", "slip": "slipped", "tip": "tipped", "in_box": "not_in_box"}
     counts = {names.get(r["_id"], r["_id"]): r["n"] for r in dbm.db().runs.aggregate(pipeline)}
-    gaps = dbm.db().runs.distinct("gaps", {"version": version, "suite": "T"})
     return {"source": "atlas (mirror of the Raindrop signals)", "signal_counts": counts, "capability_gaps": gaps[:8]}
 
 

@@ -17,6 +17,8 @@ def cmd_seed(args) -> None:
         c.drop_database(DB_NAME)
         c.drop_database(TRUTH_DB_NAME)
     d = dbm.db()
+    import uuid
+    d.meta.update_one({"_id": "epoch"}, {"$setOnInsert": {"value": uuid.uuid4().hex[:8]}}, upsert=True)
     d.products.delete_many({})
     d.products.insert_many([{**catalog.visible(p.id), "_id": p.id, "split": p.split, "gso_dir": p.gso,
                              "size_mm": catalog.visible(p.id)["approx_size_mm"]} for p in catalog.PRODUCTS])
@@ -193,6 +195,20 @@ def cmd_redteam(args) -> None:
     print("query:", json.dumps(qry), "\nresult:", res)
 
 
+def cmd_raindrop_backfill(args) -> None:
+    """Re-send every finished run and generation to Raindrop under the current epoch."""
+    from . import observe, worker
+    d = dbm.db()
+    n = 0
+    for run in d.runs.find({"status": "done"}):
+        observe.report_run(run, worker._genome_summary(worker._genome(run["version"])), flush_now=False)
+        n += 1
+    for v in d.harness_versions.find({"status": {"$ne": "evaluating"}}):
+        observe.report_generation(v)
+    observe.flush()
+    print(f"re-sent {n} runs under epoch {observe.epoch()}")
+
+
 def cmd_status(args) -> None:
     for v in dbm.db().harness_versions.find({}, {"genome": 0}).sort("version", 1):
         s = v.get("scores", {})
@@ -224,6 +240,7 @@ def main() -> None:
     s.set_defaults(fn=cmd_demo_kill)
     s = sub.add_parser("final-exam"); s.add_argument("--workers", type=int, default=8); s.set_defaults(fn=cmd_final_exam)
     s = sub.add_parser("redteam"); s.set_defaults(fn=cmd_redteam)
+    s = sub.add_parser("raindrop-backfill"); s.set_defaults(fn=cmd_raindrop_backfill)
     s = sub.add_parser("status"); s.set_defaults(fn=cmd_status)
     s = sub.add_parser("oracle"); s.add_argument("--processes", type=int, default=8); s.set_defaults(fn=cmd_oracle)
     args = ap.parse_args()

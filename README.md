@@ -64,11 +64,12 @@ serves lessons and skills), aggregation pipelines for per-family and per-class f
 database.
 
 ### Honest notes
-- **Truth separation is enforced in code.** The event sandbox didn't let us create database-scoped users from our
-  login, so we use one user. Only the referee path can open `skillsmith_truth`. The meta-agent's query tool refuses
-  it and raises Atlas's own `Unauthorized` (code 13) error, which the feed shows as a tripwire.
-- **Raindrop read-back:** we had a write key but no Query API key, so the meta-agent reads the same signal counts
-  from Atlas (the source of truth). The signals themselves are sent to Raindrop.
+- **Truth separation:** only the referee path opens `skillsmith_truth`. The meta-agent's query tool runs on a
+  separate `harness_app` login (`MONGODB_URI_HARNESS`), which is trusted only after a live check that Atlas refuses
+  it on the truth database (code 13). Without that, it falls back to a code-level wall that raises the same error.
+  The feed says which one is active.
+- **Raindrop read-back:** the meta-agent reads its signal counts per harness version back from Raindrop's Query API
+  (`events.count` filtered by signal and `harness_version`), and falls back to the same facts in Atlas.
 - Masses and material limits are assumptions anchored to package weights and published friction ranges. Held-out
   products never appear in training orders, and lessons and skills are only learned from training orders.
 
