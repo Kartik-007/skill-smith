@@ -45,5 +45,7 @@ The web never reads `skillsmith_truth`, and `live_requests` is the only collecti
 
 ## Media
 
-The core writes `public/videos/*.mp4` and `public/frames/*.png` (gitignored). `public/placeholder/` holds a
-small clip and frame so the layout works before the first render.
+The core writes `public/videos/*.mp4` and `public/frames/*.png` (gitignored). `next start` only serves public
+files that existed when it started, so `/videos/*` and `/frames/*` fall back to `/api/media/...`, which reads
+them from disk (with Range support). `public/placeholder/` holds a small clip and frame so the layout works
+before the first render.
