@@ -1,6 +1,7 @@
 """The night shift: claims queue steps and runs them. Every step's results commit in one Atlas transaction
 together with the physics checkpoint, so a killed worker loses at most the step it was in the middle of."""
 import hashlib
+from datetime import timezone
 import json
 import os
 import subprocess
@@ -8,6 +9,7 @@ import time
 import traceback
 from pathlib import Path
 
+import mujoco
 import numpy as np
 
 from . import catalog, memory, observe
@@ -94,7 +96,7 @@ def _frame_path(orid: str, step_idx: int, tag: str) -> Path:
 
 def _renderer(sim: OrderSim):
     from .render import Renderer
-    return Renderer(sim.model, 960, 540)
+    return Renderer(sim.model, 1024, 576)
 
 
 def do_place(step: dict) -> None:
@@ -118,7 +120,7 @@ def do_place(step: dict) -> None:
     if render:
         from .render import Recorder
         clip = VIDEO_DIR / "clips" / f"{step['order_run_id'].replace(':', '_')}_{step['step_idx']}.mp4"
-        rec = Recorder(sim.model, sim.data, clip, fps=24, width=960, height=540)
+        rec = Recorder(sim.model, sim.data, clip, fps=24, width=1024, height=576)
         sim.robot.observers.append(rec)
     sim.run_item(action)
     over = sim.elapsed_s() > order["time_budget_s"]
@@ -139,6 +141,9 @@ def _commit_checkpoint(step, sim, run, verdicts, render, clip=None):
     snap = sim.snapshot()
     frame_web = None
     if render:
+        # Derived positions lag one step behind the state after mj_step; recompute them so this frame is exactly what a
+        # restore from `snap` renders. mj_forward doesn't touch the integration state we just saved.
+        mujoco.mj_forward(sim.model, sim.data)
         path = _frame_path(step["order_run_id"], step["step_idx"], "ckpt")
         _renderer(sim).save_png(sim.data, path)
         frame_web = f"/frames/{path.name}"
@@ -176,7 +181,7 @@ def _report_recovery(step, sim, prev):
         diff = int(np.abs(a - b).sum())
     except Exception:
         diff = -1
-    ts = prev["created_at"].strftime("%H:%M:%S")
+    ts = prev["created_at"].replace(tzinfo=timezone.utc).astimezone().strftime("%H:%M:%S")
     dbm.feed("recovery", f"Recovered order {step['order_id']} step {step['step_idx']} from checkpoint {ts} "
              f"(attempt {step['attempts']}); pixel diff {diff}",
              order_run_id=step["order_run_id"], step_idx=step["step_idx"], attempt=step["attempts"],

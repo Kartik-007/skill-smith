@@ -55,14 +55,16 @@ def validate(genome: dict, patch: dict) -> None:
         if args.get("name") not in TOOLS:
             raise PatchRejected(f"tool must be one of {TOOLS}")
     elif op == "set_retrieval":
-        if not args:
-            raise PatchRejected("set_retrieval needs at least one argument")
+        if len(args) != 1:
+            raise PatchRejected("one knob per patch: set_retrieval takes exactly one argument")
         for k in ("lessons_k", "skills_k"):
             if k in args and not 0 <= int(args[k]) <= 5:
                 raise PatchRejected(f"{k} must be 0-5")
         if "min_score" in args and not 0.0 <= float(args["min_score"]) <= 1.0:
             raise PatchRejected("min_score must be 0-1")
     elif op == "set_default":
+        if len(args) != 1:
+            raise PatchRejected("one knob per patch: set_default takes exactly one argument")
         if "carry_height_mm" in args and not 80 <= int(args["carry_height_mm"]) <= 300:
             raise PatchRejected("carry_height_mm must be 80-300")
         if "speed" in args and args["speed"] not in ("slow", "normal", "fast"):

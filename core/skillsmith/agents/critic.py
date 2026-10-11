@@ -19,7 +19,7 @@ def write_lessons(failures: list[dict], known: list[str]) -> dict:
             "\n".join(json.dumps(f) for f in failures[:40]))
     stub = json.dumps({"lessons": [{"text": "Thin cartons crush under medium grip; pick them with grip='soft'.",
                                     "product_class": "thin_carton", "family": "crush"}]})
-    out = llm.chat(STRONG_MODEL, SYSTEM, user, temperature=0.2, max_tokens=600, stub=stub)
+    out = llm.chat(STRONG_MODEL, SYSTEM, user, temperature=0.2, max_tokens=3000, stub=stub)
     try:
         data = json.loads(llm.extract_json(out["text"]))
         lessons = [l for l in data.get("lessons", []) if isinstance(l, dict) and l.get("text")][:3]
