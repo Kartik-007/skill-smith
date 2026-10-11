@@ -48,6 +48,9 @@ def chat(model: str, system: str, user: str, temperature: float = 0.2, max_token
 
 def extract_code(text: str) -> str:
     m = re.search(r"```(?:python)?\s*\n(.*?)```", text, re.S)
+    if m:
+        return m.group(1).strip()
+    m = re.search(r"```(?:python)?\s*\n(.*)", text, re.S)  # unterminated fence: keep what's after it
     return (m.group(1) if m else text).strip()
 
 

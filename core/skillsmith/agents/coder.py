@@ -41,6 +41,7 @@ def pack(api):
 
 def write_program(genome: dict, prompt: str) -> dict:
     model = MODELS[genome["models"]["coder"]]
-    out = llm.chat(model, SYSTEM, prompt, temperature=0.3, max_tokens=1500, stub=STUB_CODE)
+    # Haiku 5.5 spends part of max_tokens on hidden reasoning; at 1500 longer prompts came back truncated mid-program.
+    out = llm.chat(model, SYSTEM, prompt, temperature=0.3, max_tokens=6000, stub=STUB_CODE)
     out["code"] = llm.extract_code(out["text"])
     return out
