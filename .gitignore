@@ -1,0 +1,20 @@
+# secrets
+.env.local
+.env*.local
+.env
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+.venv/
+core/assets/
+core/out/
+
+# node
+node_modules/
+.next/
+web/public/videos/*.mp4
+web/public/frames/
+
+.DS_Store
