@@ -1,0 +1,485 @@
+{
+ "source": "db",
+ "objective": {
+  "title": "Pack a snack order without damage (v2: hidden conditions)",
+  "customer": "Dev Ittycheria",
+  "time_budget_s": 18,
+  "goal": "Every item in the box, undamaged, inside the time budget. Same cheap coder model every version."
+ },
+ "order": {
+  "id": "T01",
+  "items": [
+   {
+    "id": "i0",
+    "product_id": "fondant",
+    "label": "Rolled fondant, 24 oz"
+   },
+   {
+    "id": "i1",
+    "product_id": "nesquik",
+    "label": "Nesquik chocolate powder canister"
+   },
+   {
+    "id": "i2",
+    "product_id": "cereal",
+    "label": "Van's honey nut crunch cereal"
+   }
+  ]
+ },
+ "versions": [
+  {
+   "version": 0,
+   "patch_text": "baseline harness",
+   "genome": {
+    "models": {
+     "coder": "Haiku 5.5",
+     "critic": "Sonnet 5.5",
+     "meta": "Sonnet 5.5"
+    },
+    "rules": [],
+    "tools": {
+     "weigh": false,
+     "squeeze_test": false,
+     "surface_check": false
+    },
+    "retrieval": {
+     "lessons_k": 0,
+     "skills_k": 0,
+     "min_score": 0.75
+    },
+    "defaults": {
+     "carry_height_mm": 150,
+     "speed_mps": 0.35
+    },
+    "retry": {
+     "max_retries": 0
+    },
+    "helpers": [],
+    "critic_focus": null,
+    "locked": {
+     "max_grip_N": 45,
+     "time_budget_s": "per order",
+     "tool_cost_s": 3,
+     "workspace": "table",
+     "referee_version": 2
+    }
+   },
+   "scores": {
+    "T": 52.1,
+    "H": 25.0,
+    "cycle_s": 14.73,
+    "cost_usd": 0.00062,
+    "by_family": {
+     "crush": 25.0
+    }
+   },
+   "run": {
+    "id": "show-T01-v0-1791758943:T01:v0:r0",
+    "plan": {
+     "model": "Haiku 5.5",
+     "code": "def pack(api):\n    api.report_gap(\"Nesquik canister is cold with condensation, so its surface friction and safe squeeze limit are unknown.\")\n    # Fondant: ~0.7 kg block, moderate grip at 0.5 m/s\n    api.pick(\"i0\", 20, 0.5)\n    api.place(\"i0\", \"S1\")\n    # Chocolate canister: possibly damp, so grip higher; rigid, so less crush risk\n    api.pick(\"i1\", 30, 0.5)\n    api.place(\"i1\", \"S2\")\n    # Cereal: light, upright required\n    api.pick(\"i2\", 15, 0.5)\n    api.place(\"i2\", \"S3\")",
+     "retrieved": {
+      "lessons": [],
+      "skills": []
+     },
+     "tool_calls": [],
+     "gaps": [
+      "Nesquik canister is cold with condensation, so its surface friction and safe squeeze limit are unknown."
+     ]
+    },
+    "steps": [
+     {
+      "kind": "place",
+      "item": {
+       "id": "i0",
+       "product_id": "fondant",
+       "label": "Rolled fondant, 24 oz"
+      },
+      "action": {
+       "grip": "20 N",
+       "grip_N": 20.0,
+       "speed": "0.5 m/s",
+       "speed_mps": 0.5,
+       "slot": "S1",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "guess",
+       "text": "No memory in the prompt; the coder estimated the grip from the gripper datasheet rule and the description."
+      },
+      "clip": {
+       "src": "/videos/clips/show-T01-v0-1791758943_T01_v0_r0_1.mp4",
+       "duration_s": 5.42
+      },
+      "result": {
+       "ok": true,
+       "family": null,
+       "detail": "packed clean",
+       "peak_N": 20.0,
+       "tilt_deg": 0.0,
+       "condition": "half_empty"
+      }
+     },
+     {
+      "kind": "place",
+      "item": {
+       "id": "i1",
+       "product_id": "nesquik",
+       "label": "Nesquik chocolate powder canister"
+      },
+      "action": {
+       "grip": "30 N",
+       "grip_N": 30.0,
+       "speed": "0.5 m/s",
+       "speed_mps": 0.5,
+       "slot": "S2",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "guess",
+       "text": "No memory in the prompt; the coder estimated the grip from the gripper datasheet rule and the description."
+      },
+      "clip": {
+       "src": "/videos/clips/show-T01-v0-1791758943_T01_v0_r0_2.mp4",
+       "duration_s": 5.67
+      },
+      "result": {
+       "ok": true,
+       "family": null,
+       "detail": "packed clean",
+       "peak_N": 29.4,
+       "tilt_deg": 0.0,
+       "condition": "wet"
+      }
+     },
+     {
+      "kind": "place",
+      "item": {
+       "id": "i2",
+       "product_id": "cereal",
+       "label": "Van's honey nut crunch cereal"
+      },
+      "action": {
+       "grip": "15 N",
+       "grip_N": 15.0,
+       "speed": "0.5 m/s",
+       "speed_mps": 0.5,
+       "slot": "S3",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "guess",
+       "text": "No memory in the prompt; the coder estimated the grip from the gripper datasheet rule and the description."
+      },
+      "clip": {
+       "src": "/videos/clips/show-T01-v0-1791758943_T01_v0_r0_3.mp4",
+       "duration_s": 5.62
+      },
+      "result": {
+       "ok": false,
+       "family": "crush",
+       "detail": "squeezed too hard by the fingers",
+       "peak_N": 14.5,
+       "tilt_deg": 0.0,
+       "condition": "dry"
+      }
+     }
+    ],
+    "verify": {
+     "damage_free": 2,
+     "n_items": 3,
+     "cycle_s": 14.89,
+     "signals": [
+      {
+       "name": "Packed clean",
+       "item": "Rolled fondant, 24 oz",
+       "polarity": "positive"
+      },
+      {
+       "name": "Packed clean",
+       "item": "Nesquik chocolate powder canister",
+       "polarity": "positive"
+      },
+      {
+       "name": "Crushed",
+       "item": "Van's honey nut crunch cereal",
+       "polarity": "negative"
+      },
+      {
+       "name": "Capability gap",
+       "item": null,
+       "polarity": "feedback"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "version": 2,
+   "patch_text": "set_retrieval skills_k=3",
+   "genome": {
+    "models": {
+     "coder": "Haiku 5.5",
+     "critic": "Sonnet 5.5",
+     "meta": "Sonnet 5.5"
+    },
+    "rules": [],
+    "tools": {
+     "weigh": false,
+     "squeeze_test": false,
+     "surface_check": false
+    },
+    "retrieval": {
+     "lessons_k": 0,
+     "skills_k": 3,
+     "min_score": 0.75
+    },
+    "defaults": {
+     "carry_height_mm": 150,
+     "speed_mps": 0.35
+    },
+    "retry": {
+     "max_retries": 0
+    },
+    "helpers": [],
+    "critic_focus": null,
+    "locked": {
+     "max_grip_N": 45,
+     "time_budget_s": "per order",
+     "tool_cost_s": 3,
+     "workspace": "table",
+     "referee_version": 2
+    }
+   },
+   "scores": {
+    "T": 62.5,
+    "H": 27.8,
+    "cycle_s": 14.8,
+    "cost_usd": 0.00065,
+    "by_family": {
+     "crush": 22.0
+    }
+   },
+   "run": {
+    "id": "show-T01-v2-1791758960:T01:v2:r0",
+    "plan": {
+     "model": "Haiku 5.5",
+     "code": "def pack(api):\n    # Speed 0.7 m/s keeps the three picks (~4.1 s each) inside the 18 s budget.\n    # Grip values follow the proven ranges and the datasheet estimate with ~1.3x margin.\n    api.pick(\"i1\", 28, 0.7)   # Nesquik canister, cold with condensation (damp, slippery)\n    api.place(\"i1\", \"S1\")\n    api.pick(\"i0\", 22, 0.7)   # Rolled fondant, half empty (lighter)\n    api.place(\"i0\", \"S2\")\n    api.pick(\"i2\", 12, 0.7)   # Van's cereal, normal, must stay upright\n    api.place(\"i2\", \"S3\")",
+     "retrieved": {
+      "lessons": [],
+      "skills": [
+       "Nesquik chocolate powder canister (10.9 oz cocoa powder in a rigid canister, often stored cold, about [60, 110, 140] mm), damp, with condensation: packed clean with grip 25-30 N per finger at 0.5-0.7 m/s (26 clean packs).",
+       "Nesquik chocolate powder canister (10.9 oz cocoa powder in a rigid canister, often stored cold, about [60, 110, 140] mm), overfilled, heavier than usual: packed clean with grip 12-25 N per finger at 0.5-0.7 m/s (28 clean packs).",
+       "Nesquik chocolate powder canister (10.9 oz cocoa powder in a rigid canister, often stored cold, about [60, 110, 140] mm), half empty, lighter than usual: packed clean with grip 12-28 N per finger at 0.5-0.7 m/s (28 clean packs).",
+       "Rolled fondant, 24 oz (a solid 24 oz block of fondant icing in a printed box, about [120, 50, 170] mm), normal condition: packed clean with grip 20-25 N per finger at 0.5-0.7 m/s (28 clean packs).",
+       "Rolled fondant, 24 oz (a solid 24 oz block of fondant icing in a printed box, about [120, 50, 170] mm), overfilled, heavier than usual: packed clean with grip 20-26 N per finger at 0.5-0.7 m/s (28 clean packs).",
+       "Rolled fondant, 24 oz (a solid 24 oz block of fondant icing in a printed box, about [120, 50, 170] mm), half empty, lighter than usual: packed clean with grip 18-25 N per finger at 0.5-0.7 m/s (56 clean packs).",
+       "Van's honey nut crunch cereal (11 oz cereal in a tall narrow box, about [200, 60, 280] mm), normal condition: packed clean with grip 10-14 N per finger at 0.5-0.7 m/s (77 clean packs).",
+       "Van's honey nut crunch cereal (11 oz cereal in a tall narrow box, about [200, 60, 280] mm), overfilled, heavier than usual: packed clean with grip 10-12 N per finger at 0.5 m/s (23 clean packs).",
+       "Little Debbie chocolate cupcakes (8 frosted cupcakes in a thin printed carton with a cellophane window, about [300, 60, 170] mm), normal condition: packed clean with grip 8-12 N per finger at 0.5-0.7 m/s (53 clean packs)."
+      ]
+     },
+     "tool_calls": [],
+     "gaps": []
+    },
+    "steps": [
+     {
+      "kind": "place",
+      "item": {
+       "id": "i1",
+       "product_id": "nesquik",
+       "label": "Nesquik chocolate powder canister"
+      },
+      "action": {
+       "grip": "28 N",
+       "grip_N": 28.0,
+       "speed": "0.7 m/s",
+       "speed_mps": 0.7,
+       "slot": "S1",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "skill",
+       "text": "3 proven skill(s) for this product were in the prompt, e.g. \"packed clean with grip 25-30 N per finger at 0.5-0.7 m/s (26 clean packs).\""
+      },
+      "clip": {
+       "src": "/videos/clips/show-T01-v2-1791758960_T01_v2_r0_1.mp4",
+       "duration_s": 4.62
+      },
+      "result": {
+       "ok": true,
+       "family": null,
+       "detail": "packed clean",
+       "peak_N": 27.3,
+       "tilt_deg": 0.0,
+       "condition": "wet"
+      }
+     },
+     {
+      "kind": "place",
+      "item": {
+       "id": "i0",
+       "product_id": "fondant",
+       "label": "Rolled fondant, 24 oz"
+      },
+      "action": {
+       "grip": "22 N",
+       "grip_N": 22.0,
+       "speed": "0.7 m/s",
+       "speed_mps": 0.7,
+       "slot": "S2",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "skill",
+       "text": "3 proven skill(s) for this product were in the prompt, e.g. \"packed clean with grip 20-25 N per finger at 0.5-0.7 m/s (28 clean packs).\""
+      },
+      "clip": {
+       "src": "/videos/clips/show-T01-v2-1791758960_T01_v2_r0_2.mp4",
+       "duration_s": 4.83
+      },
+      "result": {
+       "ok": true,
+       "family": null,
+       "detail": "packed clean",
+       "peak_N": 22.0,
+       "tilt_deg": 0.0,
+       "condition": "half_empty"
+      }
+     },
+     {
+      "kind": "place",
+      "item": {
+       "id": "i2",
+       "product_id": "cereal",
+       "label": "Van's honey nut crunch cereal"
+      },
+      "action": {
+       "grip": "12 N",
+       "grip_N": 12.0,
+       "speed": "0.7 m/s",
+       "speed_mps": 0.7,
+       "slot": "S3",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "skill",
+       "text": "2 proven skill(s) for this product were in the prompt, e.g. \"packed clean with grip 10-14 N per finger at 0.5-0.7 m/s (77 clean packs).\""
+      },
+      "clip": {
+       "src": "/videos/clips/show-T01-v2-1791758960_T01_v2_r0_3.mp4",
+       "duration_s": 4.83
+      },
+      "result": {
+       "ok": true,
+       "family": null,
+       "detail": "packed clean",
+       "peak_N": 12.0,
+       "tilt_deg": 0.0,
+       "condition": "dry"
+      }
+     }
+    ],
+    "verify": {
+     "damage_free": 3,
+     "n_items": 3,
+     "cycle_s": 12.49,
+     "signals": [
+      {
+       "name": "Packed clean",
+       "item": "Nesquik chocolate powder canister",
+       "polarity": "positive"
+      },
+      {
+       "name": "Packed clean",
+       "item": "Rolled fondant, 24 oz",
+       "polarity": "positive"
+      },
+      {
+       "name": "Packed clean",
+       "item": "Van's honey nut crunch cereal",
+       "polarity": "positive"
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "transitions": [
+  {
+   "from": 0,
+   "to": 2,
+   "model": "Sonnet 5.5",
+   "sample": false,
+   "signals": {
+    "source": "raindrop",
+    "failures": [
+     {
+      "family": "crush",
+      "label": "Crushed",
+      "count": 25.0
+     }
+    ],
+    "memory": {
+     "skills": 11,
+     "lessons": 3
+    }
+   },
+   "investigate": [
+    {
+     "tool": "query_signals",
+     "args": "v0, training orders",
+     "result": "crushed on 11, packed clean on 10, capability gap on 11",
+     "source": "raindrop"
+    }
+   ],
+   "hypothesis": "Most failures are crush on specific products (thin cartons, candy boxes), and retrieval is off even though 11 proven per-product skills are stored. Retrieving them gives the coder known safe grips without spending time budget on tools.",
+   "patch": {
+    "op": "set_retrieval",
+    "path": "retrieval.skills_k",
+    "before": "0",
+    "after": "3",
+    "rationale": "Most failures are crush on specific products (thin cartons, candy boxes), and retrieval is off even though 11 proven per-product skills are stored. Retrieving them gives the coder known safe grips without spending time budget on tools.",
+    "predicted_effect": "Fewer crush failures on repeated products, so H and T rise. Cycle time stays flat and cost rises slightly."
+   },
+   "gate": {
+    "T": [
+     52.1,
+     62.5
+    ],
+    "H": [
+     20.8,
+     27.8
+    ],
+    "p_better": 0.904,
+    "guardrails": [
+     {
+      "name": "Held-out not down",
+      "ok": true,
+      "detail": "+6.9 pts (paired)"
+     },
+     {
+      "name": "No family regresses > 1 item",
+      "ok": true,
+      "detail": "worst: slip +0.0"
+     },
+     {
+      "name": "Cycle time \u2264 +20%",
+      "ok": true,
+      "detail": "14.7 s \u2192 14.8 s"
+     },
+     {
+      "name": "Cost \u2264 2\u00d7",
+      "ok": true,
+      "detail": "1.05\u00d7"
+     }
+    ]
+   },
+   "verdict": {
+    "status": "kept",
+    "reason": "Train +10.4 pts (P(better)=0.90), held-out +6.9 pts. 1 earlier patch was tried from v0 and rolled back first"
+   },
+   "cost_usd": 0.0078
+  }
+ ]
+}

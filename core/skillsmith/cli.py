@@ -221,6 +221,16 @@ def cmd_status(args) -> None:
               f"cycle={s.get('cycle_s')} | {v.get('patch_text')} | {v.get('verdict_reason', '')}")
 
 
+def cmd_export_story(args) -> None:
+    """Write one order's showcase runs (one per kept version) as the web screen's Story JSON."""
+    from pathlib import Path
+    from . import story_export
+    out = Path(args.out) if args.out else story_export.DEFAULT_OUT
+    st = story_export.export(args.order, out, args.title, args.goal)
+    print(f"wrote {out}: versions {[v['version'] for v in st['versions']]}, "
+          f"runs {[(v['run']['verify']['damage_free'], v['run']['verify']['n_items']) for v in st['versions']]}")
+
+
 def cmd_oracle(args) -> None:
     from . import oracle
     oracle.main(args.processes)
@@ -247,6 +257,10 @@ def main() -> None:
     s = sub.add_parser("redteam"); s.set_defaults(fn=cmd_redteam)
     s = sub.add_parser("raindrop-backfill"); s.set_defaults(fn=cmd_raindrop_backfill)
     s = sub.add_parser("status"); s.set_defaults(fn=cmd_status)
+    s = sub.add_parser("export-story"); s.add_argument("--order", default="T01"); s.add_argument("--out")
+    s.add_argument("--title", default="Pack a snack order without damage")
+    s.add_argument("--goal", default="Every item in the box, undamaged, inside the time budget. Same cheap coder model every version.")
+    s.set_defaults(fn=cmd_export_story)
     s = sub.add_parser("oracle"); s.add_argument("--processes", type=int, default=8); s.set_defaults(fn=cmd_oracle)
     args = ap.parse_args()
     args.fn(args)
