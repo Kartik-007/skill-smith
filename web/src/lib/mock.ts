@@ -142,13 +142,13 @@ function mockFeed(now: number): FeedItem[] {
     .reverse();
 }
 
-const ORDER_LABELS: Record<string, string[]> = {
-  H01: ["Little Debbie donut sticks", "Nips butter rum hard candy", "Van's honey nut crunch cereal"],
-  H02: ["JarroSil supplement bottle", "Nescafe Momento mocha mix", "Little Debbie chocolate cupcakes"],
-  H03: ["Crunch Girl Scouts caramel coconut bars", "Little Debbie donut sticks", "Nesquik chocolate powder canister"],
-  H04: ["Nips butter rum hard candy", "JarroSil supplement bottle", "Rolled fondant, 24 oz"],
-  H05: ["Nescafe Momento mocha mix", "Crunch Girl Scouts caramel coconut bars", "Nips peanut butter hard candy"],
-  H06: ["Little Debbie donut sticks", "JarroSil supplement bottle", "Nescafe Momento mocha mix"],
+const ORDER_ITEMS: Record<string, string[]> = {
+  H01: ["donut_sticks", "nips_rum", "cereal"],
+  H02: ["jarrosil", "momento", "cupcakes"],
+  H03: ["girl_scouts_caramel", "donut_sticks", "nesquik"],
+  H04: ["nips_rum", "jarrosil", "fondant"],
+  H05: ["momento", "girl_scouts_caramel", "nips_peanut"],
+  H06: ["donut_sticks", "jarrosil", "momento"],
 };
 
 function mockQueue(now: number): QueueSnapshot {
@@ -158,15 +158,15 @@ function mockQueue(now: number): QueueSnapshot {
   const CYCLE_S = 5 * STEP_S + 20;
   const phases = [52, 41, 30, 19, 8, 0];
   const batch = "eval-g7";
-  const orders: QueueOrder[] = Object.entries(ORDER_LABELS).map(([orderId, labels], k) => {
+  const orders: QueueOrder[] = Object.entries(ORDER_ITEMS).map(([orderId, products], k) => {
     const e = (t + phases[k]) % CYCLE_S;
     const cur = Math.floor(e / STEP_S);
     const inStep = e % STEP_S;
     const kinds: [StepKind, string | null][] = [
       ["plan", null],
-      ["place", labels[0]],
-      ["place", labels[1]],
-      ["place", labels[2]],
+      ["place", products[0]],
+      ["place", products[1]],
+      ["place", products[2]],
       ["verify", null],
     ];
     const runId = `${batch}:${orderId}:1`;
@@ -175,7 +175,7 @@ function mockQueue(now: number): QueueSnapshot {
       order_id: orderId,
       version: 7,
       repeat: 1,
-      steps: kinds.map(([kind, label], i) => {
+      steps: kinds.map(([kind, productId], i) => {
         const leased = i === cur;
         const status = i < cur ? "done" : leased ? "leased" : "pending";
         const recovered = k === 2 && i === 3 && cur >= 3;
@@ -183,7 +183,8 @@ function mockQueue(now: number): QueueSnapshot {
           id: `${runId}:${i}`,
           step_idx: i,
           kind,
-          label,
+          label: null,
+          product_id: productId,
           status,
           attempts: recovered ? 2 : leased || status === "done" ? 1 : 0,
           owner: leased ? (k % 2 ? "worker-b" : "worker-a") : null,

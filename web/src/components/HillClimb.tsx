@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { FAMILY_COLOR, baselineVersion, incumbent, pct, secs, signed, usd } from "@/lib/derive";
+import { FAMILY_COLOR, baselineVersion, incumbent, isFailed, pct, secs, shortPatch, signed, usd } from "@/lib/derive";
 import type { Family, HarnessVersion } from "@/lib/types";
 import { Panel, PanelHead, useSize } from "./ui";
 
@@ -15,13 +15,14 @@ const CHAR_W = LABEL_PX * 0.56;
 
 function kindOf(v: HarnessVersion): Kind {
   if (v.version === 0 || v.status === "baseline") return "base";
-  if (v.status === "kept") return "kept";
-  if (v.status === "running") return "running";
-  return "fail";
+  if (v.status === "kept" || v.verdict === "kept") return "kept";
+  if (isFailed(v)) return "fail";
+  return "running"; // running, evaluating, or anything else still waiting for the gate
 }
 
 function verdictWord(v: HarnessVersion): string {
-  const s = v.status === "running" ? "on trial" : (v.verdict ?? v.status);
+  const k = kindOf(v);
+  const s = k === "running" ? "on trial" : k === "base" ? "baseline" : (v.verdict ?? v.status);
   return s.replace("_", " ").toUpperCase();
 }
 
@@ -138,7 +139,7 @@ export function HillClimb({ versions, sample, fresh }: { versions: HarnessVersio
     const labels: (Label | null)[] = pts.map(() => null);
     for (const i of order) {
       const p = pts[i];
-      const text = p.kind === "base" ? "bare harness" : p.v.patch_text || p.v.patch?.op || "";
+      const text = p.kind === "base" ? "bare harness" : shortPatch(p.v, 46);
       if (!text) continue;
       const x = X(i);
       const y = Y(p.y);
@@ -244,7 +245,8 @@ export function HillClimb({ versions, sample, fresh }: { versions: HarnessVersio
               const x = chart.X(i);
               const y = chart.Y(p.y);
               const s = p.v.scores;
-              const delta = s?.delta_H ?? (p.scored && p.kind !== "base" ? p.y - p.level : null);
+              // the step height on the chart; the gate's paired delta is in the tooltip
+              const delta = p.scored && p.kind === "kept" ? p.y - p.level : null;
               const vColor = p.kind === "kept" ? LEAF : p.kind === "fail" ? CRUSH : p.kind === "running" ? "#e8f1ee" : "#8fa9b3";
               return (
                 <g key={p.v.version}>
@@ -370,17 +372,22 @@ function LatestVerdict({ v }: { v: HarnessVersion }) {
   if (kind === "base") return <div className="truncate text-mute">v0 baseline measured · waiting for the first patch</div>;
   const color = kind === "kept" ? "text-leaf" : kind === "fail" ? "text-crush" : "text-text";
   const dH = v.scores?.delta_H;
+  const detail =
+    kind === "running"
+      ? `evaluating on held-out orders, paired against v${v.parent ?? "?"}`
+      : v.verdict_reason || v.rationale;
   return (
-    <div className="flex min-w-0 items-baseline gap-2">
-      <span className="shrink-0 font-mono font-bold">v{v.version}</span>
-      <span className={`shrink-0 font-bold tracking-wide ${color}`}>
-        {kind === "running" ? <span className="mr-1 inline-block h-2 w-2 animate-pulse rounded-full bg-leaf align-middle" /> : null}
-        {verdictWord(v)}
-        {dH != null && kind !== "running" ? ` ${signed(dH)} pts` : ""}
-      </span>
-      <span className="truncate text-mute">
-        {kind === "running" ? `${v.patch_text} · evaluating on held-out orders` : v.verdict_reason || v.patch_text}
-      </span>
+    <div className="min-w-0">
+      <div className="flex min-w-0 items-baseline gap-2">
+        <span className="shrink-0 font-mono font-bold">v{v.version}</span>
+        <span className={`shrink-0 font-bold tracking-wide ${color}`}>
+          {kind === "running" ? <span className="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-leaf align-middle" /> : null}
+          {verdictWord(v)}
+          {dH != null && kind !== "running" ? ` ${signed(dH, 1)} pts` : ""}
+        </span>
+        <span className="truncate font-mono text-[0.85rem] text-text/85">{shortPatch(v, 90)}</span>
+      </div>
+      {detail ? <div className="truncate text-[0.85rem] text-mute">{detail}</div> : null}
     </div>
   );
 }
@@ -402,13 +409,13 @@ function Tooltip({ p, x, y, w }: { p: Pt; x: number; y: number; w: number }) {
           {p.kind === "base" ? "BASELINE" : verdictWord(v)}
         </span>
       </div>
-      {v.patch_text ? <div className="mt-1 font-mono text-text">{v.patch_text}</div> : null}
+      {v.patch_text ? <div className="mt-1 font-mono text-text">{shortPatch(v, 160)}</div> : null}
       {v.verdict_reason || v.rationale ? <div className="mt-1 text-mute">{v.verdict_reason || v.rationale}</div> : null}
       <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[0.8rem] text-text/90 tabular">
-        <span>held-out {p.scored ? pct(s?.H) : "not run"}</span>
-        <span>train {pct(s?.T)}</span>
+        <span>held-out {p.scored ? pct(s?.H, 1) : "not run"}</span>
+        <span>train {pct(s?.T, 1)}</span>
         <span>p_better {s?.p_better != null ? s.p_better.toFixed(2) : "–"}</span>
-        <span>Δ held-out {signed(s?.delta_H) || "–"}</span>
+        <span>gate Δ {signed(s?.delta_H, 1) || "–"}</span>
         <span>cost {usd(s?.cost_usd)}</span>
         <span>cycle {secs(s?.cycle_s)}</span>
       </div>
@@ -416,7 +423,7 @@ function Tooltip({ p, x, y, w }: { p: Pt; x: number; y: number; w: number }) {
         <div className="mt-2 flex flex-wrap gap-1.5">
           {fam.map(([f, n]) => (
             <span key={f} className="rounded px-1.5 py-px text-[0.75rem] font-semibold" style={{ color: FAMILY_COLOR[f], boxShadow: `inset 0 0 0 1px ${FAMILY_COLOR[f]}88` }}>
-              {f} {n}
+              {f} {Number.isInteger(n) ? n : n.toFixed(1)}
             </span>
           ))}
         </div>

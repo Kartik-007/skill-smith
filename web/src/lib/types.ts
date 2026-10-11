@@ -59,6 +59,8 @@ export interface QueueStep {
   step_idx: number;
   kind: StepKind;
   label: string | null;
+  /** product being placed (place steps), when known */
+  product_id: string | null;
   status: StepStatus;
   attempts: number;
   owner: string | null;

@@ -7,11 +7,12 @@ import { Header } from "./Header";
 import { HillClimb } from "./HillClimb";
 import { LiveOrderForm } from "./LiveOrderForm";
 import { NightShift } from "./NightShift";
+import type { TheaterView as View } from "@/lib/derive";
 import { Theater } from "./Theater";
 
 const FRESH_MS = 15_000;
 
-export function Stage({ mode, initial }: { mode: Mode; initial: AppState | null }) {
+export function Stage({ mode, initial, view }: { mode: Mode; initial: AppState | null; view?: View }) {
   const { state, stale } = useAppState(mode, initial);
 
   if (!state) {
@@ -53,7 +54,7 @@ export function Stage({ mode, initial }: { mode: Mode; initial: AppState | null 
         coder={coder}
       />
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.62fr)_minmax(0,1fr)] grid-rows-[minmax(0,1.42fr)_minmax(0,1fr)] gap-3 [@media(max-height:760px)]:grid-rows-[minmax(0,1.28fr)_minmax(0,1fr)] max-[1100px]:grid-cols-1 max-[1100px]:grid-rows-[60vh_420px_420px_420px]">
-        <Theater showcase={state.showcase} deltaH={deltaH} />
+        <Theater showcase={state.showcase} deltaH={deltaH} sample={mocked.has("showcase")} initialView={view} />
         <HillClimb versions={state.versions} sample={mocked.has("versions")} fresh={verdictFresh} />
         <NightShift
           queue={state.queue}

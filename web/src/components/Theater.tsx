@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { FAMILY_COLOR, FAMILY_WORD, shortName } from "@/lib/derive";
+import { FAMILY_COLOR, FAMILY_WORD, shortName, type TheaterView } from "@/lib/derive";
 import type { RunItem, RunSummary, Showcase } from "@/lib/types";
 
-type View = "both" | "v0" | "best" | "live";
+type View = TheaterView;
 
 function LoopVideo({ src, poster }: { src: string; poster?: string }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -128,8 +128,18 @@ const TABS: { id: View; label: string; key: string }[] = [
   { id: "live", label: "live order", key: "4" },
 ];
 
-export function Theater({ showcase, deltaH }: { showcase: Showcase; deltaH: number | null }) {
-  const [view, setView] = useState<View>("both");
+export function Theater({
+  showcase,
+  deltaH,
+  sample,
+  initialView = "both",
+}: {
+  showcase: Showcase;
+  deltaH: number | null;
+  sample: boolean;
+  initialView?: View;
+}) {
+  const [view, setView] = useState<View>(initialView);
   const liveId = showcase.live?.id ?? null;
   const seenLive = useRef<string | null | undefined>(undefined);
 
@@ -181,6 +191,14 @@ export function Theater({ showcase, deltaH }: { showcase: Showcase; deltaH: numb
               </>
             ) : null}
           </span>
+          {sample ? (
+            <span
+              title="No showcase runs with video yet; showing a placeholder clip"
+              className="shrink-0 rounded border border-line-2 px-1.5 py-px text-[0.65rem] uppercase tracking-widest text-faint"
+            >
+              sample
+            </span>
+          ) : null}
         </div>
         <div className="flex shrink-0 gap-1 rounded-lg border border-line/70 bg-panel/50 p-0.5">
           {TABS.filter((t) => t.id !== "live" || live).map((t) => (

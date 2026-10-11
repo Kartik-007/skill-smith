@@ -79,7 +79,10 @@ export function Feed({ feed, nowIso, sample }: { feed: FeedItem[]; nowIso: strin
               >
                 <Icon name={trip ? "tripwire" : item.type in FEED_COLOR ? item.type : "info"} size={14} />
               </span>
-              <p className={`min-w-0 flex-1 text-[0.95rem] leading-snug ${trip ? "text-[#ffb3b3]" : "text-text/90"}`}>
+              <p
+                title={item.text}
+                className={`line-clamp-2 min-w-0 flex-1 text-[0.95rem] leading-snug ${trip ? "text-[#ffb3b3]" : "text-text/90"}`}
+              >
                 {actor ? (
                   <span className="mr-1.5 font-semibold" style={{ color: trip ? "#FF5D5D" : color }}>
                     {actor}:

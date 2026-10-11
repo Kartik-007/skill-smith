@@ -34,6 +34,7 @@ const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 
 const NO_HEAVY = { embedding: 0, state: 0 } as const;
+const VERSION_PROJECTION = { embedding: 0, state: 0, genome: 0, meta: 0 } as const;
 const RUN_PROJECTION = { embedding: 0, state: 0, plan_code: 0, actions: 0, tool_calls: 0, prompt: 0 } as const;
 
 function toVersion(d: Document): HarnessVersion {
@@ -112,16 +113,15 @@ function toRun(d: Document, frame: string | null = null): RunSummary {
 // ---------- sections ----------
 
 async function loadQueue(db: Db, now: number): Promise<QueueSnapshot | null> {
-  const batches = db.collection("batches");
-  let batch =
-    (await batches.findOne({ status: "running" }, { sort: { created_at: -1 }, projection: NO_HEAVY })) ??
-    (await batches.findOne({}, { sort: { created_at: -1 }, projection: NO_HEAVY }));
+  const batches = db.collection<{ _id: string }>("batches");
   const wq = db.collection("work_queue");
-  if (!batch) {
-    const latest = await wq.findOne({}, { sort: { updated_at: -1 }, projection: { batch_id: 1 } });
-    if (!latest) return null; // empty queue -> caller falls back to mock
-    batch = { _id: latest.batch_id, status: "running", kind: "eval" };
-  }
+  // Show the batch where work last happened (a judge's live order takes over the panel while it runs).
+  const latest = await wq.findOne({}, { sort: { updated_at: -1 }, projection: { batch_id: 1 } });
+  const found: Document | null = latest
+    ? await batches.findOne({ _id: str(latest.batch_id) }, { projection: NO_HEAVY })
+    : await batches.findOne({ status: "running" }, { sort: { created_at: -1 }, projection: NO_HEAVY });
+  if (!found && !latest) return null; // empty queue -> caller falls back to mock
+  const batch: Document = found ?? { _id: latest!.batch_id, status: "running", kind: "eval" };
   const steps = await wq
     .find({ batch_id: batch._id }, { projection: NO_HEAVY })
     .sort({ order_run_id: 1, step_idx: 1 })
@@ -147,6 +147,7 @@ async function loadQueue(db: Db, now: number): Promise<QueueSnapshot | null> {
       step_idx: num(s.step_idx) ?? o.steps.length,
       kind: str(s.kind, "place") as StepKind,
       label: strOrNull(s.label) ?? strOrNull(s.item_id),
+      product_id: strOrNull(s.product_id),
       status,
       attempts: num(s.attempts) ?? 0,
       owner: lease ? strOrNull(lease.owner) : null,
@@ -158,6 +159,7 @@ async function loadQueue(db: Db, now: number): Promise<QueueSnapshot | null> {
   const list = [...orders.values()].sort(
     (a, b) => a.order_id.localeCompare(b.order_id) || (a.repeat ?? 0) - (b.repeat ?? 0),
   );
+  await fillPlaceProducts(db, list);
   const all = list.flatMap((o) => o.steps);
   return {
     batch_id: str(batch._id),
@@ -171,6 +173,36 @@ async function loadQueue(db: Db, now: number): Promise<QueueSnapshot | null> {
     workers: [...workers].sort(),
     orders: list,
   };
+}
+
+/**
+ * Place steps may not say which item they move. For leased ones, recover it from the run's planned actions
+ * (k-th place step = k-th action) and the order's item list, so the panel can say "placing Cereal".
+ */
+async function fillPlaceProducts(db: Db, orders: QueueOrder[]) {
+  const need = orders.filter((o) => o.steps.some((s) => s.status === "leased" && s.kind === "place" && !s.product_id));
+  if (!need.length) return;
+  const [runs, orderDocs] = await Promise.all([
+    db
+      .collection<{ _id: string }>("runs")
+      .find({ _id: { $in: need.map((o) => o.order_run_id) } }, { projection: { actions: 1 } })
+      .toArray(),
+    db
+      .collection<{ _id: string }>("orders")
+      .find({ _id: { $in: [...new Set(need.map((o) => o.order_id))] } }, { projection: { items: 1 } })
+      .toArray(),
+  ]);
+  for (const o of need) {
+    const actions: Document[] = (runs.find((r) => r._id === o.order_run_id) as Document | undefined)?.actions ?? [];
+    const items: Document[] = (orderDocs.find((d) => d._id === o.order_id) as Document | undefined)?.items ?? [];
+    const places = o.steps.filter((s) => s.kind === "place").sort((a, b) => a.step_idx - b.step_idx);
+    places.forEach((s, k) => {
+      if (s.product_id) return;
+      const itemId = actions[k]?.item;
+      const pid = items.find((it) => it.id === itemId)?.product_id;
+      if (pid) s.product_id = str(pid);
+    });
+  }
 }
 
 function incumbentVersion(versions: HarnessVersion[]): number {
@@ -236,7 +268,7 @@ async function loadShowcase(db: Db, versions: HarnessVersion[], now: number) {
 
 async function loadFromDb(db: Db, now: number): Promise<AppState> {
   const [versionsDesc, feedDocs, recoveryDocs, productDocs, liveDocs] = await Promise.all([
-    db.collection("harness_versions").find({}, { projection: NO_HEAVY }).sort({ version: -1 }).limit(12).toArray(),
+    db.collection("harness_versions").find({}, { projection: VERSION_PROJECTION }).sort({ version: -1 }).limit(12).toArray(),
     db.collection("feed").find({}, { projection: NO_HEAVY }).sort({ ts: -1 }).limit(40).toArray(),
     db.collection("feed").find({ type: "recovery" }, { projection: NO_HEAVY }).sort({ ts: -1 }).limit(5).toArray(),
     db
@@ -253,7 +285,7 @@ async function loadFromDb(db: Db, now: number): Promise<AppState> {
   let versions = versionsDesc.map(toVersion).reverse();
   if (versions.length && versions[0].version !== 0) {
     // more than 12 generations: keep v0 as the chart's anchor
-    const v0 = await db.collection("harness_versions").findOne({ version: 0 }, { projection: NO_HEAVY });
+    const v0 = await db.collection("harness_versions").findOne({ version: 0 }, { projection: VERSION_PROJECTION });
     if (v0) versions = [toVersion(v0), ...versions.slice(1)];
   }
   if (!versions.length) {

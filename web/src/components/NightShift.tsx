@@ -20,7 +20,7 @@ function Square({ s }: { s: QueueStep }) {
   return (
     <span
       className={`${base} ${cls}`}
-      title={`${s.kind}${s.label ? ` ${s.label}` : ""} · ${s.status}${s.attempts > 1 ? ` · attempt ${s.attempts}` : ""}`}
+      title={`${s.kind}${s.product_id || s.label ? ` ${shortName(s.product_id, s.label)}` : ""} · ${s.status}${s.attempts > 1 ? ` · attempt ${s.attempts}` : ""}`}
     >
       {glyph}
       {s.attempts > 1 ? (
@@ -40,7 +40,9 @@ function rowStatus(o: QueueOrder): { text: string; tone: string } {
         ? "coder planning"
         : leased.kind === "verify"
           ? "referee checking"
-          : `placing ${shortName(leased.label, leased.label)}`;
+          : leased.product_id || leased.label
+            ? `placing ${shortName(leased.product_id, leased.label)}`
+            : `placing item ${leased.step_idx}`;
     const left = leased.lease_remaining_s;
     if (left != null && left <= 0) return { text: `${what} · lease expired, waiting for a worker`, tone: "text-tip" };
     const attempt = leased.attempts > 1 ? ` · attempt ${leased.attempts}` : "";

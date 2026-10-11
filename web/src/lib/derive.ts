@@ -47,6 +47,11 @@ export function shortName(productId: string | null | undefined, label?: string |
   return words.length > 3 ? words.slice(-2).join(" ") : l;
 }
 
+// ---------- theater ----------
+
+export type TheaterView = "both" | "v0" | "best" | "live";
+export const THEATER_VIEWS: TheaterView[] = ["both", "v0", "best", "live"];
+
 // ---------- pipeline stage ----------
 
 export type Stage = "coder" | "sim" | "referee" | "raindrop" | "meta" | "gate";
@@ -106,6 +111,20 @@ export function incumbent(versions: HarnessVersion[]): HarnessVersion | null {
   return versions.find((v) => v.status === "baseline" || v.version === 0) ?? versions[0] ?? null;
 }
 
+export function isFailed(v: HarnessVersion): boolean {
+  const s = v.verdict ?? v.status;
+  return s === "rejected" || s === "rolled_back";
+}
+
+/** A patch as a short label: add_rule text='Keep cartons soft…' -> add_rule “Keep cartons soft…”. */
+export function shortPatch(v: HarnessVersion, max = 60): string {
+  let t = (v.patch_text || v.patch?.op || "").trim();
+  const m = t.match(/^(\w+)\s+text=['"]([\s\S]*?)['"]?$/);
+  if (m) t = `${m[1]} “${m[2]}”`;
+  if (t.length > max) t = `${t.slice(0, max - 1).trimEnd()}…`;
+  return t;
+}
+
 export function baselineVersion(versions: HarnessVersion[]): HarnessVersion | null {
   return versions.find((v) => v.version === 0) ?? versions.find((v) => v.status === "baseline") ?? null;
 }
@@ -126,8 +145,12 @@ export function ago(ts: string | null | undefined, nowIso: string): string {
 export const pct = (v: number | null | undefined, digits = 0) =>
   v == null || !Number.isFinite(v) ? "–" : `${v.toFixed(digits)}%`;
 
-export const usd = (v: number | null | undefined) =>
-  v == null || !Number.isFinite(v) ? "–" : v < 0.1 ? `$${v.toFixed(3)}` : `$${v.toFixed(2)}`;
+/** Dollars; sub-cent amounts (a cheap model's cost per order) read better in cents. */
+export const usd = (v: number | null | undefined) => {
+  if (v == null || !Number.isFinite(v)) return "–";
+  if (v < 0.01) return `${(v * 100).toPrecision(2).replace(/\.?0+$/, "")}¢`;
+  return v < 0.1 ? `$${v.toFixed(3)}` : `$${v.toFixed(2)}`;
+};
 
 export const secs = (v: number | null | undefined) =>
   v == null || !Number.isFinite(v) ? "–" : `${v.toFixed(v < 10 ? 1 : 0)}s`;

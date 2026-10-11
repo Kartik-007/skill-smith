@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Stage } from "@/components/Stage";
+import { THEATER_VIEWS } from "@/lib/derive";
 import { loadState } from "@/lib/state";
 import type { AppState } from "@/lib/types";
 import type { Mode } from "@/lib/useAppState";
@@ -26,5 +27,7 @@ export default async function Page({
   const sp = await searchParams;
   const mode: Mode = sp.replay === "1" ? "replay" : sp.mock === "1" ? "mock" : "live";
   const initial = mode === "replay" ? await firstReplayFrame() : await loadState({ forceMock: mode === "mock" });
-  return <Stage mode={mode} initial={initial} />;
+  // ?view=v0|best|live opens the theater on one screen (keys 1-4 switch at runtime)
+  const view = THEATER_VIEWS.find((v) => v === sp.view);
+  return <Stage mode={mode} initial={initial} view={view} />;
 }
