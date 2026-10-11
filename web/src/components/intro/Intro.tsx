@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { cx } from "@/components/studio/format";
 import { Icon } from "@/components/studio/icons";
+import { DurableDiagram } from "./DurableDiagram";
 import { LoopDiagram, type Build } from "./LoopDiagram";
 
 // A 20-30 second keynote intro: problem, idea, how it works. Arrow keys / space / click advance;
@@ -12,7 +13,8 @@ import { LoopDiagram, type Build } from "./LoopDiagram";
 type Beat =
   | { kind: "problem" }
   | { kind: "idea" }
-  | { kind: "how"; build: Build; caption: string };
+  | { kind: "how"; build: Build; caption: string }
+  | { kind: "durable" };
 
 const BEATS: { beat: Beat; secs: number }[] = [
   { beat: { kind: "problem" }, secs: 6 },
@@ -53,6 +55,7 @@ const BEATS: { beat: Beat; secs: number }[] = [
     },
     secs: 6,
   },
+  { beat: { kind: "durable" }, secs: 9 },
 ];
 
 export function Intro({ auto }: { auto?: boolean }) {
@@ -114,7 +117,9 @@ export function Intro({ auto }: { auto?: boolean }) {
     return () => clearInterval(id);
   }, [looping]);
 
-  const section = beat.kind === "problem" ? 0 : beat.kind === "idea" ? 1 : 2;
+  const section = beat.kind === "problem" ? 0 : beat.kind === "idea" ? 1 : beat.kind === "how" ? 2 : 3;
+  const firstOf = (k: number) =>
+    k < 2 ? k : k === 2 ? 2 : BEATS.findIndex((b) => b.beat.kind === "durable");
 
   return (
     <main
@@ -131,11 +136,11 @@ export function Intro({ auto }: { auto?: boolean }) {
           Skill Smith
         </span>
         <nav className="ml-8 flex gap-6 font-mono text-[0.75rem] tracking-[0.14em] uppercase">
-          {["The problem", "Our solution", "How it works"].map((label, k) => (
+          {["The problem", "Our solution", "How it works", "Never loses its place"].map((label, k) => (
             <button
               key={label}
               type="button"
-              onClick={() => go(k === 2 ? 2 : k)}
+              onClick={() => go(firstOf(k))}
               className={cx(
                 "transition-colors",
                 k === section ? "text-accent" : "text-faint hover:text-mute",
@@ -164,6 +169,7 @@ export function Intro({ auto }: { auto?: boolean }) {
             version={version}
           />
         )}
+        {beat.kind === "durable" && <Durable key="d" />}
       </div>
 
       <footer className="flex items-center gap-4">
@@ -361,6 +367,22 @@ function How({
         >
           {caption}
         </p>
+      </div>
+    </section>
+  );
+}
+
+function Durable() {
+  return (
+    <section className="animate-enter flex h-full flex-col pt-6">
+      <div className="flex items-baseline gap-6">
+        <Eyebrow n="04">Never loses its place</Eyebrow>
+        <h2 className="text-[1.9rem] font-semibold tracking-tight">
+          Kill the worker mid-move. It resumes from Atlas, exactly.
+        </h2>
+      </div>
+      <div className="card mt-5 min-h-0 flex-1 overflow-hidden px-8 py-5">
+        <DurableDiagram />
       </div>
     </section>
   );
