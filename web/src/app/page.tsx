@@ -21,5 +21,13 @@ export default async function Page({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  return <Studio story={await loadStory()} autoplay={sp.autoplay === "1"} />;
+  // ?at=v2 opens paused right before v2's run (the intro's last slide links here)
+  const at = typeof sp.at === "string" ? /^v(\d+)$/.exec(sp.at) : null;
+  return (
+    <Studio
+      story={await loadStory()}
+      autoplay={sp.autoplay === "1"}
+      startAtVersion={at ? Number(at[1]) : undefined}
+    />
+  );
 }

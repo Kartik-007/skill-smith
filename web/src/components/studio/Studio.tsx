@@ -12,9 +12,23 @@ import { MetaStage } from "./MetaStage";
 import { RunStage } from "./RunStage";
 import { Timeline } from "./Timeline";
 
-export function Studio({ story, autoplay }: { story: Story; autoplay?: boolean }) {
+export function Studio({
+  story,
+  autoplay,
+  startAtVersion,
+}: {
+  story: Story;
+  autoplay?: boolean;
+  /** open on the last moment of the meta-agent step that produced this version (the verdict, just before its run) */
+  startAtVersion?: number;
+}) {
   const tl = useMemo(() => buildTimeline(story), [story]);
-  const pb = usePlayback(tl.total, { autoplay });
+  const startAt = useMemo(() => {
+    if (startAtVersion == null) return 0;
+    const seg = tl.segments.find((s) => s.kind === "run" && story.versions[s.vi].version === startAtVersion);
+    return seg ? Math.max(0, seg.start - 0.3) : 0;
+  }, [tl, story, startAtVersion]);
+  const pb = usePlayback(tl.total, { autoplay, startAt });
   const cursor = locate(tl, pb.t);
   const hvi = harnessVersionIndex(cursor, story);
   const harness = story.versions[hvi];

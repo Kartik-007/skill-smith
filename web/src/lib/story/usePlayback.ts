@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /** A play/pause clock in seconds, driven by requestAnimationFrame. */
-export function usePlayback(total: number, opts: { autoplay?: boolean } = {}) {
-  const [t, setT] = useState(0);
+export function usePlayback(total: number, opts: { autoplay?: boolean; startAt?: number } = {}) {
+  const [t, setT] = useState(() => Math.max(0, Math.min(total, opts.startAt ?? 0)));
   const [playing, setPlaying] = useState(!!opts.autoplay);
   const [rate, setRate] = useState(1);
   const last = useRef<number | null>(null);

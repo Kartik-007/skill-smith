@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { cx } from "@/components/studio/format";
 import { Icon } from "@/components/studio/icons";
@@ -22,67 +23,24 @@ const BEATS: { beat: Beat; secs: number }[] = [
   {
     beat: {
       kind: "how",
-      build: "run",
-      caption:
-        "Each order runs through the harness. The coder writes a program, the robot runs it, and a referee grades it on physics nobody can see.",
-    },
-    secs: 5,
-  },
-  {
-    beat: {
-      kind: "how",
-      build: "memory",
-      caption:
-        "What worked becomes a skill. What failed becomes a lesson. Both go into Atlas and come back for the next program.",
-    },
-    secs: 4.5,
-  },
-  {
-    beat: {
-      kind: "how",
-      build: "evolve",
-      caption:
-        "Between versions, a meta-agent reads the failure signals and proposes one change. The gate keeps it only if scores go up.",
-    },
-    secs: 5,
-  },
-  {
-    beat: {
-      kind: "how",
       build: "loop",
       caption:
-        "Then it runs again on the new harness. The model never changes. The harness keeps getting better.",
+        "The coder writes a program, the robot runs it, and a referee grades it on hidden physics. What worked and what failed goes into Atlas memory, and between versions a meta-agent proposes one change that the gate keeps only if scores go up.",
     },
-    secs: 6,
-  },
-  {
-    beat: {
-      kind: "durable",
-      build: "commit",
-      caption:
-        "Every step of an order is a leased job in an Atlas queue. When a step finishes, its result and the exact physics state commit together, in one transaction.",
-    },
-    secs: 5,
-  },
-  {
-    beat: {
-      kind: "durable",
-      build: "kill",
-      caption:
-        "Halfway through placing the cereal, we kill the worker. Nothing from that half-done step is saved, and its lease runs out.",
-    },
-    secs: 4.5,
+    secs: 9,
   },
   {
     beat: {
       kind: "durable",
       build: "resume",
       caption:
-        "A new worker picks the step up, loads the checkpoint from Atlas and carries on from the exact same state. Pixel diff 0. The order still finishes 3/3.",
+        "Every step of an order is a leased job in an Atlas queue, and its result and exact physics state commit together. Kill the worker mid-step and a new one resumes from the checkpoint: pixel diff 0, order still 3/3.",
     },
-    secs: 6,
+    secs: 8,
   },
 ];
+
+const DEEP_DIVE_HANDOFF = "/?at=v2";
 
 export function Intro({ auto }: { auto?: boolean }) {
   const [i, setI] = useState(0);
@@ -97,6 +55,13 @@ export function Intro({ auto }: { auto?: boolean }) {
     },
     [n],
   );
+
+  // stepping past the last slide hands over to the deep dive, paused right before v2's run
+  const router = useRouter();
+  const next = useCallback(() => {
+    if (i === n - 1) router.push(DEEP_DIVE_HANDOFF);
+    else go(i + 1);
+  }, [i, n, go, router]);
 
   // timer for autoplay
   useEffect(() => {
@@ -122,15 +87,15 @@ export function Intro({ auto }: { auto?: boolean }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
         e.preventDefault();
-        go(i + 1);
+        next();
       } else if (e.key === "ArrowLeft" || e.key === "PageUp") go(i - 1);
       else if (e.key === "p") setPlaying((p) => !p);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [i, go]);
+  }, [i, go, next]);
 
-  // the harness version ticks v0 → v1 → v2 in time with the pulse on the last beat
+  // the harness version ticks v0 → v1 → v2 in time with the pulse on the loop diagram
   const beat = BEATS[i].beat;
   const [version, setVersion] = useState(0);
   const looping = beat.kind === "how" && beat.build === "loop";
@@ -144,8 +109,6 @@ export function Intro({ auto }: { auto?: boolean }) {
   }, [looping]);
 
   const section = beat.kind === "problem" ? 0 : beat.kind === "idea" ? 1 : beat.kind === "how" ? 2 : 3;
-  const firstOf = (k: number) =>
-    k < 2 ? k : k === 2 ? 2 : BEATS.findIndex((b) => b.beat.kind === "durable");
 
   return (
     <main
@@ -166,7 +129,7 @@ export function Intro({ auto }: { auto?: boolean }) {
             <button
               key={label}
               type="button"
-              onClick={() => go(firstOf(k))}
+              onClick={() => go(k)}
               className={cx(
                 "transition-colors",
                 k === section ? "text-accent" : "text-faint hover:text-mute",
@@ -184,7 +147,7 @@ export function Intro({ auto }: { auto?: boolean }) {
         </Link>
       </header>
 
-      <div className="relative min-h-0 flex-1" onClick={() => go(i + 1)}>
+      <div className="relative min-h-0 flex-1" onClick={next}>
         {beat.kind === "problem" && <Problem key="p" />}
         {beat.kind === "idea" && <Idea key="i" />}
         {beat.kind === "how" && (
