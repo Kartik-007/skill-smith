@@ -18,3 +18,6 @@ web/public/videos/*.mp4
 web/public/frames/
 
 .DS_Store
+
+# agent worktrees
+.claude/
