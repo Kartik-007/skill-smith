@@ -1,7 +1,7 @@
 """The gate: paired comparison per item instance, bootstrap over orders, plus guardrails."""
 import numpy as np
 
-FAMILIES = ["crush", "slip", "collision", "tip", "in_box", "over_budget"]
+from .referee import FAMILIES
 
 
 def summarize(runs: list[dict]) -> dict:

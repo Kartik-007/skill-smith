@@ -8,7 +8,7 @@ from .config import env
 
 _ready = False
 FAMILY_SIGNAL = {"crush": "crushed", "slip": "slipped", "tip": "tipped", "collision": "collision",
-                 "over_budget": "over_budget", "in_box": "not_in_box"}
+                 "over_budget": "over_budget", "in_box": "not_in_box", "ordering": "crushed_by_stack"}
 
 
 def _rd():
@@ -106,7 +106,7 @@ def report_generation(v: dict) -> None:
 _rq = None
 SIGNAL_LABELS = {"crushed": "Crushed", "slipped": "Slipped", "tipped": "Tipped", "collision": "Collision",
                  "over_budget": "Over budget", "not_in_box": "Not in box", "packed_clean": "Packed clean",
-                 "capability_gap": "Capability gap"}
+                 "capability_gap": "Capability gap", "crushed_by_stack": "Crushed by stack"}
 
 
 def query_signals(version: int, suite: str) -> dict | None:

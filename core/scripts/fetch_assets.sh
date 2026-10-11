@@ -27,6 +27,14 @@ PRODUCTS=(
   Black_Forest_Fruit_Snacks_Juicy_Filled_Centers_10_pouches_9_oz_total
   Nestle_Candy_19_oz_Butterfinger_Singles_116567
   Nestl_Skinny_Cow_Heavenly_Crisp_Candy_Bar_Chocolate_Raspberry_6_pack_462_oz_total
+  Nescafe_Memento_Latte_Caramel_8_08_oz_23_g_packets_64_oz_184_g
+  Nestle_Carnation_Cinnamon_Coffeecake_Kit_1913OZ
+  Nestle_Skinny_Cow_Dreamy_Clusters_Candy_Dark_Chocolate_6_pack_1_oz_pouches
+  Black_Elderberry_Syrup_54_oz_Gaia_Herbs
+  Wilton_Pearlized_Sugar_Sprinkles_525_oz_Gold
+  Weston_No_33_Signature_Sausage_Tonic_12_fl_oz
+  Polar_Herring_Fillets_Smoked_Peppered_705_oz_total
+  Mastic_Gum
 )
 
 if [ ! -d assets/menagerie ]; then

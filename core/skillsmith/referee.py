@@ -14,7 +14,7 @@ import numpy as np
 
 from .scene import TOTE_CENTRE, TOTE_INNER, TOTE_FLOOR_Z, TOTE_WALL_H
 
-FAMILIES = ["crush", "slip", "collision", "tip", "in_box", "over_budget"]
+FAMILIES = ["crush", "slip", "collision", "tip", "in_box", "over_budget", "ordering"]
 SLIP_DROP_M = 0.02
 TIP_DEG = 30.0
 COLLISION_N = 8.0
@@ -26,6 +26,7 @@ TINT = {
     "tip": [1.0, 0.5, 0.0, 0.55],
     "in_box": [0.5, 0.5, 0.5, 0.55],
     "over_budget": [0.3, 0.3, 0.9, 0.55],
+    "ordering": [0.9, 0.1, 0.6, 0.55],
     "ok": [0.1, 0.9, 0.4, 0.35],
 }
 
@@ -43,6 +44,11 @@ class Monitor:
         self.peak_N = {iid: 0.0 for iid in idx["items"]}
         self.peak_t = {iid: 0.0 for iid in idx["items"]}
         self.events: dict[str, list] = {iid: [] for iid in idx["items"]}  # (time, family, detail)
+        # Stacking: smoothed load each item carries from products resting on it, its peak, and who caused it.
+        self.load_ema = {iid: 0.0 for iid in idx["items"]}
+        self.load_peak = {iid: 0.0 for iid in idx["items"]}
+        self.load_by: dict[str, str | None] = {iid: None for iid in idx["items"]}
+        self.stacked_on: dict[str, str] = {}  # top item -> the item it was placed on
         self.held: str | None = None
         self.held_offset: float | None = None
         self._f = np.zeros(6)
@@ -63,6 +69,8 @@ class Monitor:
     def __call__(self) -> None:
         m, d = self.m, self.d
         finger_force = {iid: np.zeros(2) for iid in self.ema}
+        load = {iid: 0.0 for iid in self.ema}
+        top_load: dict[str, tuple[float, str]] = {}
         for i in range(d.ncon):
             c = d.contact[i]
             b1, b2 = m.geom_bodyid[c.geom1], m.geom_bodyid[c.geom2]
@@ -85,11 +93,25 @@ class Monitor:
                     if self._f[0] > COLLISION_N:
                         what = "the box wall" if other_geom in self.wall_geoms else "another product"
                         self._event(iid, "collision", f"hit {what} while carried ({self._f[0]:.0f} N)")
+                elif other_body in self.body_to_item and iid != self.held:
+                    # Load from a product resting on this one (its base sits above this item's middle).
+                    other = self.body_to_item[other_body]
+                    me = self.idx["items"][iid]
+                    if d.xpos[other_body][2] > d.xpos[me["body"]][2] + 0.5 * me["size"][2]:
+                        mujoco.mj_contactForce(m, d, i, self._f)
+                        load[iid] += self._f[0]
+                        if self._f[0] > top_load.get(iid, (0.0, ""))[0]:
+                            top_load[iid] = (self._f[0], other)
         for iid, f in finger_force.items():
             self.ema[iid] += self.alpha * (f - self.ema[iid])
             peak = float(self.ema[iid].max())
             if peak > self.peak_N[iid]:
                 self.peak_N[iid], self.peak_t[iid] = peak, float(d.time)
+            self.load_ema[iid] += self.alpha * (load[iid] - self.load_ema[iid])
+            if self.load_ema[iid] > self.load_peak[iid]:
+                self.load_peak[iid] = float(self.load_ema[iid])
+                if iid in top_load:
+                    self.load_by[iid] = top_load[iid][1]
         if self.held is not None:
             tcp, _ = self.robot.tcp()
             z_item = d.xpos[self.idx["items"][self.held]["body"]][2]
@@ -105,11 +127,16 @@ def in_box(data: mujoco.MjData, body: int) -> bool:
     x, y, z = data.xpos[body]
     lo = TOTE_CENTRE - TOTE_INNER / 2
     hi = TOTE_CENTRE + TOTE_INNER / 2
-    return bool(lo[0] < x < hi[0] and lo[1] < y < hi[1] and TOTE_FLOOR_Z - 0.01 < z < TOTE_FLOOR_Z + TOTE_WALL_H)
+    # Stacked items sit up to ~30 cm above the floor; the footprint check is what matters.
+    return bool(lo[0] < x < hi[0] and lo[1] < y < hi[1] and TOTE_FLOOR_Z - 0.01 < z < TOTE_FLOOR_Z + 0.45)
 
 
-def judge_item(mon: Monitor, iid: str, crush_limit_N: float, upright_required: bool, over_budget: bool) -> dict:
-    """Per-item verdict. Earliest event wins; end-state checks come after all events."""
+def judge_item(mon: Monitor, iid: str, crush_limit_N: float, upright_required: bool, over_budget: bool,
+               labels: dict | None = None) -> dict:
+    """Per-item verdict. Earliest event wins; end-state checks come after all events.
+
+    The packaging takes the same force from a product stacked on top as from the fingers (top-load limit =
+    crush limit), so a heavy item on a fragile one is an `ordering` failure of the item underneath."""
     d, body = mon.d, mon.idx["items"][iid]["body"]
     events = list(mon.events[iid])
     if mon.peak_N[iid] > crush_limit_N:
@@ -117,12 +144,23 @@ def judge_item(mon: Monitor, iid: str, crush_limit_N: float, upright_required: b
     events.sort(key=lambda e: e[0])
     tilt = tilt_deg(d, body)
     inside = in_box(d, body)
+    stacked = iid in mon.stacked_on or iid in mon.stacked_on.values()
+    base = mon.stacked_on.get(iid)
+    off_stack = False
+    if base is not None:  # must end resting on the item it was placed on
+        b = mon.idx["items"][base]
+        off_stack = d.xpos[body][2] < d.xpos[b["body"]][2] + 0.8 * b["size"][2]
     family, detail = None, ""
     if events:
         family, detail = events[0][1], events[0][2]
+    elif mon.load_peak[iid] > crush_limit_N:
+        who = (labels or {}).get(mon.load_by[iid], "the product") if mon.load_by[iid] else "the product"
+        family, detail = "ordering", f"crushed by {who} stacked on top"
     elif not inside:
         family, detail = "in_box", "ended outside the box"
-    elif upright_required and tilt > TIP_DEG:
+    elif off_stack:
+        family, detail = "tip", "fell off the stack"
+    elif (upright_required or stacked) and tilt > TIP_DEG:
         family, detail = "tip", f"ended {tilt:.0f} degrees from upright"
     elif over_budget:
         family, detail = "over_budget", "placed after the order's time budget ran out"

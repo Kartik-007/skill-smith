@@ -1,4 +1,4 @@
-"""Builds the MuJoCo world for one order: table, Panda, MongoDB-green snack box, and the order's products.
+"""Builds the MuJoCo world for one order: table, Panda, MongoDB-green snack box (3 lanes), and the order's products.
 
 Each product = textured scanned mesh for looks (no collision) + one box proxy with the real mass for physics.
 The same scene spec always builds the same model, which is what makes checkpoints restorable.
@@ -12,20 +12,28 @@ from . import catalog
 from .config import PANDA_XML
 
 TABLE_Z = 0.40
-TABLE_CENTRE_X = 0.55
+TABLE_CENTRE_X = 0.52
+TABLE_HALF = (0.40, 0.72)
+# Everything the arm visits sits 0.40-0.67 m from its base: closer than ~0.42 m the wrist flips, and with an item
+# lifted over a tall stack (TCP ~0.9 m up) top-down reach ends near 0.67 m (measured, see README).
 # Tote interior (metres, world frame)
-TOTE_CENTRE = np.array([0.50, -0.30])
+TOTE_CENTRE = np.array([0.47, -0.27])
 TOTE_INNER = np.array([0.44, 0.34])
 TOTE_WALL_H = 0.10
 TOTE_WALL_T = 0.008
 TOTE_FLOOR_T = 0.006
 TOTE_FLOOR_Z = TABLE_Z + TOTE_FLOOR_T
 # Three lanes along x, 15 cm apart: the Panda hand is ~20 cm wide along the finger axis, so neighbours closer than
-# that get hit by the hand. Products stand upright with their long side along y.
+# that get hit by the hand. Products stand upright with their long side along y, and can stack two high, so the
+# box holds up to six items.
 SLOTS = {f"S{i + 1}": np.array([TOTE_CENTRE[0] - 0.15 + 0.15 * i, TOTE_CENTRE[1]]) for i in range(3)}
-# Staging positions along x at y = +0.25
-STAGING = [np.array([0.33 + 0.15 * i, 0.25]) for i in range(3)]
-
+# Five staging spots: a front row of three and a back row of two, 31 cm apart so the longest boxes never overlap.
+# Carried items are long along y, so carries are lifted above the items still standing in staging
+# (executor.carry_height_for).
+STAGING = [np.array([0.35 + 0.15 * i, 0.22]) for i in range(3)] + [np.array([0.25 + 0.15 * i, 0.54]) for i in range(2)]
+# Travel lane in front of the box: carries go here first, then straight along their lane, so they never pass
+# over another lane's items.
+FRONT_Y = TOTE_CENTRE[1] + TOTE_INNER[1] / 2 + 0.04
 HOME_QPOS = np.array([0, 0, 0, -1.57079, 0, 1.57079, -0.7853])
 GREEN = "0.0 0.41 0.29 1"
 GREEN_LIGHT = "0.07 0.33 0.24 1"
@@ -99,11 +107,11 @@ def _world_xml(items: list[dict], truth: dict) -> str:
     <light name="sun_fill" directional="true" pos="0 0 3" dir="0.5 -0.6 -1" diffuse="0.25 0.25 0.28" castshadow="false"/>
     <light name="sun_back" directional="true" pos="0 0 3" dir="0.2 0.8 -0.6" diffuse="0.15 0.15 0.15" castshadow="false"/>
     <geom name="floor" type="plane" size="4 4 0.1" material="floor_mat"/>
-    <geom name="table_top" type="box" size="0.40 0.60 0.02" pos="{TABLE_CENTRE_X} 0 {TABLE_Z - 0.02}" material="wood"/>
-    <geom name="table_leg1" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X - 0.36} 0.56 0.19" material="steel"/>
-    <geom name="table_leg2" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X + 0.36} 0.56 0.19" material="steel"/>
-    <geom name="table_leg3" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X - 0.36} -0.56 0.19" material="steel"/>
-    <geom name="table_leg4" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X + 0.36} -0.56 0.19" material="steel"/>
+    <geom name="table_top" type="box" size="{TABLE_HALF[0]} {TABLE_HALF[1]} 0.02" pos="{TABLE_CENTRE_X} 0 {TABLE_Z - 0.02}" material="wood"/>
+    <geom name="table_leg1" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X - 0.36} {TABLE_HALF[1] - 0.04} 0.19" material="steel"/>
+    <geom name="table_leg2" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X + 0.36} {TABLE_HALF[1] - 0.04} 0.19" material="steel"/>
+    <geom name="table_leg3" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X - 0.36} {-TABLE_HALF[1] + 0.04} 0.19" material="steel"/>
+    <geom name="table_leg4" type="box" size="0.02 0.02 0.19" pos="{TABLE_CENTRE_X + 0.36} {-TABLE_HALF[1] + 0.04} 0.19" material="steel"/>
     <geom name="pedestal" type="cylinder" size="0.12 {TABLE_Z / 2}" pos="0 0 {TABLE_Z / 2}" rgba="0.12 0.12 0.14 1"/>
     {tote}
     {''.join(bodies)}

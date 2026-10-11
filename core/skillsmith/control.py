@@ -10,7 +10,7 @@ from typing import Callable
 import mujoco
 import numpy as np
 
-from .scene import TABLE_Z, TOTE_FLOOR_Z
+from .scene import FRONT_Y, TABLE_Z, TOTE_FLOOR_Z
 
 TCP_OFFSET = np.array([0.0, 0.0, 0.1034])
 GRASP_DEPTH = 0.025  # pads centred this far below the item top; the hand body sits ~2 cm above it
@@ -200,6 +200,11 @@ class Robot:
         yaw = self.grasp_yaw(iid)
         grasp_offset = H - GRASP_DEPTH
         self.open(narrow + 0.03, wait=0.05)
+        tcp, _ = self.tcp()
+        if tcp[1] < FRONT_Y:  # coming back from the box: leave along the lane first
+            self.move([tcp[0], FRONT_Y, tcp[2]], yaw)
+        above = max(float(tcp[2]), pos[2] + H + 0.06)  # travel at the height the hand already has
+        self.move([pos[0], pos[1], above], yaw)
         self.move([pos[0], pos[1], pos[2] + H + 0.06], yaw)
         self.move([pos[0], pos[1], pos[2] + grasp_offset], yaw)
         self.close(grip_N)
@@ -209,11 +214,14 @@ class Robot:
         self.move([pos[0], pos[1], z_carry], yaw)
         return {"yaw": yaw, "grasp_offset": grasp_offset, "z_carry": z_carry, "narrow": narrow}
 
-    def place(self, iid: str, slot_xy, held: dict, on_release: Callable[[], None] | None = None) -> None:
-        """Carry the held item over the slot, lower it to the box floor and release."""
+    def place(self, iid: str, slot_xy, held: dict, on_release: Callable[[], None] | None = None,
+              floor_z: float = TOTE_FLOOR_Z) -> None:
+        """Carry the held item over the slot, lower it until its bottom is just above floor_z (the box floor, or the
+        top of the item it's stacked on) and release."""
         x, y = slot_xy
+        self.move([x, FRONT_Y, held["z_carry"]], held["yaw"])  # in front of the lane, then along it
         self.move([x, y, held["z_carry"]], held["yaw"])
-        self.move([x, y, TOTE_FLOOR_Z + held["grasp_offset"] + 0.006], held["yaw"])
+        self.move([x, y, floor_z + held["grasp_offset"] + 0.006], held["yaw"])
         self.wait(settle_s(self.speed))
         if on_release:
             on_release()

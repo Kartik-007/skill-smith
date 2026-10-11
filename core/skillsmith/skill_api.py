@@ -36,7 +36,8 @@ def item_time_s(speed_mps: float) -> float:
 def api_doc(tools: dict) -> str:
     times = ", ".join(f"{v} m/s ~{t}s" for v, t in SPEED_TIME_S.items())
     lines = [
-        "You control a Franka Panda arm that packs products into a box with 3 slots: S1, S2, S3.",
+        f"You control a Franka Panda arm that packs products into a box with {len(SLOTS)} slots: "
+        f"{', '.join(SLOTS)}. Orders can have more items than slots, so some items must be stacked.",
         "Write a Python function `def pack(api):` that packs every item in the order exactly once.",
         "Available calls:",
         "- api.items() -> list of dicts: {id, label, description, approx_size_mm [w, d, h], upright_required}",
@@ -51,8 +52,11 @@ def api_doc(tools: dict) -> str:
         "plastic is ~0.35-0.5; damp surfaces are far more slippery. Squeezing much harder than needed doesn't make the "
         "hold safer and can crush packaging; about 1.3x the minimum is the usual choice. How hard packaging can be "
         "squeezed varies by product and condition.",
-        "- api.place(id, slot): put the held item in a free slot ('S1', 'S2' or 'S3'). Call right after pick. "
-        "The arm keeps items vertical, so they are always set down upright.",
+        "- api.place(id, slot): put the held item on the floor of a free slot. Call right after pick. "
+        "api.place(id, on_top_of=other_id) instead stacks it on an item already on a slot's floor (at most two "
+        "high). The item underneath carries the one on top: a heavy item on fragile packaging crushes it. "
+        "The arm keeps items vertical, so they are always set down upright. The arm lifts each item above "
+        "whatever is standing, so tall stacks make the next moves a little longer.",
     ]
     if tools.get("weigh"):
         lines.append(f"- api.weigh(id) -> mass in kg (float, about +/-{WEIGH_NOISE:.0%} noise). "
@@ -81,7 +85,8 @@ class RecordingAPI:
         self.tool_calls: list[dict] = []
         self.gaps: list[str] = []
         self._pending: dict | None = None
-        self._used_slots: set[str] = set()
+        self._floor: dict[str, str] = {}  # slot -> item on its floor
+        self._on_top: dict[str, str] = {}  # bottom item -> item stacked on it
         self._rng = {iid: np.random.default_rng(t["noise_seed"]) for iid, t in truth.items()}
 
     # ---- read ----
@@ -153,16 +158,29 @@ class RecordingAPI:
             raise PlanError(f"item {iid} was already packed")
         self._pending = {"item": iid, "grip_N": round(grip_N, 2), "speed_mps": round(speed_mps, 3)}
 
-    def place(self, iid, slot="S1") -> None:
+    def place(self, iid, slot=None, on_top_of=None) -> None:
         iid = self._check_id(iid)
         if self._pending is None or self._pending["item"] != iid:
             raise PlanError(f"pick {iid} before placing it")
-        if slot not in SLOTS:
-            raise PlanError(f"slot must be one of {sorted(SLOTS)}")
-        if slot in self._used_slots:
-            raise PlanError(f"slot {slot} is already used")
-        self._used_slots.add(slot)
-        self.actions.append({**self._pending, "slot": slot})
+        if on_top_of is not None:
+            base = self._check_id(on_top_of)
+            floor = {v: k for k, v in self._floor.items()}
+            if base not in floor:
+                raise PlanError(f"{base} is not on a slot's floor; you can only stack on an item placed with a slot")
+            if base in self._on_top:
+                raise PlanError(f"{base} already has an item on top (stacks are at most two high)")
+            if slot is not None and slot != floor[base]:
+                raise PlanError(f"{base} is in {floor[base]}, not {slot}")
+            slot = floor[base]
+            self._on_top[base] = iid
+        else:
+            if slot not in SLOTS:
+                raise PlanError(f"slot must be one of {list(SLOTS)}, or pass on_top_of=<id of a packed item>")
+            if slot in self._floor:
+                raise PlanError(f"slot {slot} is taken by {self._floor[slot]}; to stack, use "
+                                f"api.place(id, on_top_of={self._floor[slot]!r})")
+            self._floor[slot] = iid
+        self.actions.append({**self._pending, "slot": slot, "on_top_of": on_top_of})
         self._pending = None
 
     def tool_time_s(self) -> float:

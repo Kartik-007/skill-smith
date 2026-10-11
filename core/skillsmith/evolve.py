@@ -137,7 +137,7 @@ def _signals(version: int) -> dict:
         {"$unwind": "$items"},
         {"$group": {"_id": {"$ifNull": ["$items.family", "packed_clean"]}, "n": {"$sum": 1}}},
     ]
-    names = {"crush": "crushed", "slip": "slipped", "tip": "tipped", "in_box": "not_in_box"}
+    names = observe.FAMILY_SIGNAL
     counts = {names.get(r["_id"], r["_id"]): r["n"] for r in dbm.db().runs.aggregate(pipeline)}
     return {"source": "atlas (mirror of the Raindrop signals)", "signal_counts": counts, "capability_gaps": gaps[:8]}
 
