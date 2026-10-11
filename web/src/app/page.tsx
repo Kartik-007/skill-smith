@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Stage } from "@/components/Stage";
 import { THEATER_VIEWS } from "@/lib/derive";
+import { publicDir } from "@/lib/paths";
 import { loadState } from "@/lib/state";
 import type { AppState } from "@/lib/types";
 import type { Mode } from "@/lib/useAppState";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 async function firstReplayFrame(): Promise<AppState | null> {
   try {
-    const raw = await readFile(path.join(process.cwd(), "public", "replay.json"), "utf8");
+    const raw = await readFile(path.join(publicDir(), "replay.json"), "utf8");
     const data = JSON.parse(raw) as AppState | AppState[];
     const first = Array.isArray(data) ? data[0] : data;
     return first ? { ...first, source: "replay" } : null;

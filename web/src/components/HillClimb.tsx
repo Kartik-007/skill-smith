@@ -183,7 +183,19 @@ export function HillClimb({ versions, sample, fresh }: { versions: HarnessVersio
         }
       }
     }
-    return { padL, padR, padT, padB, plotW, plotH, spacing, X, Y, ticks, d, labels, compact };
+    // cost and cycle under the axis: when versions crowd together, keep the baseline, kept versions and the newest
+    const META_W = 46;
+    const metaShown = pts.map(() => false);
+    const metaPriority = pts
+      .map((p, i) => i)
+      .sort((a, b) => {
+        const rank = (i: number) => (pts[i].kind === "kept" || pts[i].kind === "base" || i === pts.length - 1 ? 0 : 1);
+        return rank(a) - rank(b) || a - b;
+      });
+    for (const i of metaPriority) {
+      if (pts.every((_, j) => !metaShown[j] || Math.abs(X(j) - X(i)) >= META_W)) metaShown[i] = true;
+    }
+    return { padL, padR, padT, padB, plotW, plotH, spacing, X, Y, ticks, d, labels, compact, metaShown };
   }, [w, h, pts, baseH]);
 
   const hp = hover != null ? pts[hover] : null;
@@ -290,7 +302,7 @@ export function HillClimb({ versions, sample, fresh }: { versions: HarnessVersio
                   <text x={x} y={chart.padT + chart.plotH + 20} textAnchor="middle" fontSize={13.5} fontWeight={700} fill={vColor} className="font-mono">
                     v{p.v.version}
                   </text>
-                  {chart.compact ? (
+                  {!chart.metaShown[i] ? null : chart.compact ? (
                     <>
                       <text x={x} y={chart.padT + chart.plotH + 36} textAnchor="middle" fontSize={11} fill="#8fa9b3" className="font-mono">
                         {s?.cost_usd != null ? usd(s.cost_usd) : ""}
@@ -352,13 +364,14 @@ export function HillClimb({ versions, sample, fresh }: { versions: HarnessVersio
       </div>
 
       <footer className="mt-2 shrink-0 space-y-1 border-t border-line/60 pt-2 text-[0.9rem]">
-        {finalBase != null && finalBest != null && best && best.version !== base?.version ? (
-          <div className="flex items-baseline gap-2">
-            <span className="text-[0.75rem] font-semibold uppercase tracking-[0.18em] text-mute">final exam</span>
-            <span className="font-mono tabular text-text">
-              v0 {pct(finalBase)} → best <span className="font-bold text-leaf">{pct(finalBest)}</span>
+        {finalBest != null && best && best.version !== base?.version ? (
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="shrink-0 text-[0.75rem] font-semibold uppercase tracking-[0.18em] text-mute">final exam</span>
+            <span className="shrink-0 font-mono tabular text-text">
+              {finalBase != null ? `v0 ${pct(finalBase)} → ` : ""}best{" "}
+              <span className="font-bold text-leaf">{pct(finalBest)}</span>
             </span>
-            <span className="text-faint">snacks no agent has ever seen</span>
+            <span className="truncate text-faint">snacks no agent has ever seen</span>
           </div>
         ) : null}
         {last ? <LatestVerdict v={last} /> : null}

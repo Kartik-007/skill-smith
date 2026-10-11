@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { ago, shortName } from "@/lib/derive";
 import type { QueueOrder, QueueSnapshot, QueueStep, Recovery } from "@/lib/types";
 import { Icon } from "./Icons";
@@ -97,6 +98,38 @@ function QueueRows({ queue }: { queue: QueueSnapshot }) {
   );
 }
 
+/** "g08:T08:v8:r1" -> "T08 r1"; "batch:order:rep" -> "order r<rep>". */
+function runLabel(id: string): string {
+  const p = id.split(":");
+  if (p.length >= 4) return `${p[1]} ${p[p.length - 1]}`;
+  if (p.length === 3) return `${p[1]} r${p[2]}`;
+  return id;
+}
+
+/** A checkpoint frame; the core may still be writing it, so retry a few times before showing a gap. */
+function Frame({ src }: { src: string }) {
+  const [tries, setTries] = useState(0);
+  const [ok, setOk] = useState(true);
+  useEffect(() => {
+    if (ok || tries >= 10) return;
+    const t = setTimeout(() => {
+      setTries((n) => n + 1);
+      setOk(true);
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [ok, tries]);
+  if (!ok) return <div className="absolute inset-0 flex items-center justify-center text-[0.75rem] text-faint">frame loading…</div>;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={tries ? `${src}?r=${tries}` : src}
+      alt=""
+      onError={() => setOk(false)}
+      className="absolute inset-0 h-full w-full object-cover"
+    />
+  );
+}
+
 function RecoveryCard({ r, nowIso }: { r: Recovery | null; nowIso: string }) {
   if (!r) {
     return (
@@ -119,7 +152,7 @@ function RecoveryCard({ r, nowIso }: { r: Recovery | null; nowIso: string }) {
         <span className="flex min-w-0 items-center gap-1.5 truncate text-[0.95rem] font-semibold text-text">
           <Icon name="recovery" size={15} className="shrink-0 text-leaf" />
           Recovered
-          {r.order_run_id ? <span className="font-mono text-mute">{r.order_run_id.split(":").slice(-2).join(" r")}</span> : null}
+          {r.order_run_id ? <span className="font-mono text-mute">{runLabel(r.order_run_id)}</span> : null}
           {r.step_idx != null ? <span>step {r.step_idx}</span> : null}
           {r.attempt != null ? <span className="text-tip">attempt {r.attempt}</span> : null}
         </span>
@@ -133,10 +166,7 @@ function RecoveryCard({ r, nowIso }: { r: Recovery | null; nowIso: string }) {
           ] as const
         ).map(([label, src]) => (
           <figure key={label} className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg bg-black ring-1 ring-line">
-            {src ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={src} alt={label} className="absolute inset-0 h-full w-full object-cover" />
-            ) : null}
+            {src ? <Frame key={src} src={src} /> : null}
             <figcaption className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[0.7rem] font-semibold uppercase tracking-wider text-text/90">
               {label}
             </figcaption>

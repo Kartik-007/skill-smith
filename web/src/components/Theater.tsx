@@ -8,6 +8,17 @@ type View = TheaterView;
 function LoopVideo({ src, poster }: { src: string; poster?: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  // the core may point at a file it is still writing; retry a few times before giving up
+  useEffect(() => {
+    if (!failed || attempt >= 20) return;
+    const t = setTimeout(() => {
+      setFailed(false);
+      setAttempt((a) => a + 1);
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [failed, attempt]);
+  const url = attempt ? `${src}${src.includes("?") ? "&" : "?"}r=${attempt}` : src;
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
@@ -23,12 +34,12 @@ function LoopVideo({ src, poster }: { src: string; poster?: string }) {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", kick);
     };
-  }, [src]);
-  if (failed) return <Blank text="video not found on this machine" />;
+  }, [url, failed]);
+  if (failed) return <Blank text={attempt < 20 ? "loading video…" : "video not found on this machine"} pulse={attempt < 20} />;
   return (
     <video
       ref={ref}
-      src={src}
+      src={url}
       poster={poster}
       muted
       loop
