@@ -13,12 +13,14 @@ from .config import GSO_DIR
 # Material classes. Friction anchored to published dry/lubricated ranges; crush limits are set from the
 # gripper calibration (control.calibrate_grips) so that each class has a narrow safe window.
 # [assumption] values; see README.
+# Calibrated per-finger grip forces: soft ~5 N, medium ~11 N, firm ~22 N, max ~47 N.
+# "wet" only applies where it is physical (condensation on cold canisters and bottles).
 MATERIALS = {
-    "thin_carton": {"friction": (0.55, 0.32), "crush_N": (5.0, 7.5)},
-    "candy_box": {"friction": (0.55, 0.32), "crush_N": (14.0, 20.0)},
-    "dense_box": {"friction": (0.50, 0.30), "crush_N": (60.0, 80.0)},
-    "canister": {"friction": (0.45, 0.15), "crush_N": (60.0, 80.0)},
-    "plastic_bottle": {"friction": (0.35, 0.20), "crush_N": (12.0, 18.0)},
+    "thin_carton": {"friction": (0.55, 0.55), "crush_N": (6.5, 9.0), "wet_ok": False},
+    "candy_box": {"friction": (0.55, 0.55), "crush_N": (14.0, 19.0), "wet_ok": False},
+    "dense_box": {"friction": (0.50, 0.50), "crush_N": (60.0, 80.0), "wet_ok": False},
+    "canister": {"friction": (0.45, 0.15), "crush_N": (60.0, 80.0), "wet_ok": True},
+    "plastic_bottle": {"friction": (0.35, 0.20), "crush_N": (13.0, 18.0), "wet_ok": True},
 }
 
 

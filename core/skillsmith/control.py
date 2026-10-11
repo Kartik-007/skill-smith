@@ -15,11 +15,11 @@ from .scene import TABLE_Z, TOTE_FLOOR_Z
 TCP_OFFSET = np.array([0.0, 0.0, 0.1034])
 GRASP_DEPTH = 0.025  # pads centred this far below the item top; the hand body sits ~2 cm above it
 # Tendon force (N) when closing. Each finger gets about half. Calibrated in calibrate_grips().
-GRIP_FORCE = {"soft": 9.0, "medium": 20.0, "firm": 40.0, "max": 90.0}
+GRIP_FORCE = {"soft": 9.0, "medium": 20.0, "firm": 40.0, "max": 85.0}
 GRIP_LEVELS = list(GRIP_FORCE)
-SPEED_MPS = {"slow": 0.12, "normal": 0.25, "fast": 0.45}
+SPEED_MPS = {"slow": 0.15, "normal": 0.35, "fast": 0.8}
 SETTLE_S = {"slow": 0.30, "normal": 0.15, "fast": 0.02}
-MAX_JOINT_STEP = {"slow": 1.2, "normal": 2.0, "fast": 3.0}  # rad/s clip on the commanded joints
+MAX_JOINT_STEP = {"slow": 1.5, "normal": 2.5, "fast": 5.0}  # rad/s clip on the commanded joints
 GRIPPER = 7  # actuator index of the finger tendon
 OPEN_GAIN = 100 / 255 * 0.04  # Menagerie position-servo gain
 
@@ -145,12 +145,19 @@ class Robot:
         self.wait(wait)
 
     def close(self, level: str, wait: float = 0.45) -> None:
+        """Force-controlled close. The force ramps up over 0.15 s so the fingers don't slam into the item."""
         m = self.m
+        force = GRIP_FORCE[level]
         m.actuator_gainprm[GRIPPER, 0] = 0.0
-        m.actuator_biasprm[GRIPPER, :3] = [-GRIP_FORCE[level], 0, -10]
+        m.actuator_biasprm[GRIPPER, :3] = [0, 0, -20]
         self.d.ctrl[GRIPPER] = 0.0
         self.grip = {"mode": "closed", "level": level, "width": 0.0}
-        self.wait(wait)
+        n_ramp = max(1, int(0.15 / m.opt.timestep)) if wait > 0 else 1
+        for k in range(1, n_ramp + 1):
+            m.actuator_biasprm[GRIPPER, 0] = -force * k / n_ramp
+            if wait > 0:
+                self.step()
+        self.wait(wait - 0.15)
 
     def finger_gap(self) -> float:
         return float(self.d.qpos[self.idx["finger_qpos"]].sum())
@@ -173,7 +180,7 @@ class Robot:
             yaw += math.pi
         return yaw
 
-    def pick(self, iid: str, grip: str, carry_height: float) -> dict:
+    def pick(self, iid: str, grip: str, carry_height: float, on_grasp: Callable[[], None] | None = None) -> dict:
         """Grasp item iid just below its top (the fingers are ~5 cm long) and lift it to the carry height,
         i.e. with its bottom `carry_height` metres above the table."""
         pos, _ = self.item_pose(iid)
@@ -186,16 +193,20 @@ class Robot:
         self.move([pos[0], pos[1], pos[2] + H + 0.06], yaw)
         self.move([pos[0], pos[1], pos[2] + grasp_offset], yaw)
         self.close(grip)
+        if on_grasp:
+            on_grasp()
         z_carry = TABLE_Z + carry_height + grasp_offset
         self.move([pos[0], pos[1], z_carry], yaw)
         return {"yaw": yaw, "grasp_offset": grasp_offset, "z_carry": z_carry, "narrow": narrow}
 
-    def place(self, iid: str, slot_xy, held: dict, settle: float | None = None) -> None:
+    def place(self, iid: str, slot_xy, held: dict, on_release: Callable[[], None] | None = None) -> None:
         """Carry the held item over the slot, lower it to the box floor and release."""
         x, y = slot_xy
         self.move([x, y, held["z_carry"]], held["yaw"])
         self.move([x, y, TOTE_FLOOR_Z + held["grasp_offset"] + 0.006], held["yaw"])
-        self.wait(SETTLE_S[self.speed] if settle is None else settle)
+        self.wait(SETTLE_S[self.speed])
+        if on_release:
+            on_release()
         self.open(held["narrow"] + 0.03, wait=0.25)
         self.move([x, y, held["z_carry"] + 0.03], held["yaw"], min_t=0.3)
 

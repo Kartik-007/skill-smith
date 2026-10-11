@@ -58,7 +58,7 @@ def _world_xml(items: list[dict], truth: dict) -> str:
       <geom name="vis_{iid}" type="mesh" mesh="mesh_{iid}" material="mat_{iid}" contype="0" conaffinity="0"
             group="2" density="0"/>
       <geom name="col_{iid}" type="box" size="{half[0]} {half[1]} {half[2]}" pos="{centre[0]} {centre[1]} {half[2]}"
-            mass="{mass * (1 - frac)}" friction="{t['friction']} 0.05 0.0005" priority="1" condim="4"
+            mass="{mass * (1 - frac)}" friction="{t['friction']} 0.006 0.0005" priority="1" condim="4"
             rgba="1 0 0 0" group="3"/>
       <geom name="com_{iid}" type="sphere" size="0.004" pos="{centre[0] + com[0]} {centre[1] + com[1]} {half[2] + com[2]}"
             mass="{max(mass * frac, 1e-4)}" contype="0" conaffinity="0" group="5" rgba="0 0 0 0"/>
