@@ -10,7 +10,7 @@ const ACTOR: Partial<Record<FeedType, string>> = {
   gap: "Coder asked",
   patch: "Meta-agent",
   verdict: "Gate",
-  tripwire: "Atlas said no",
+  tripwire: "Truth wall",
   recovery: "Night shift",
   lesson: "Lesson",
   skill: "Skill",

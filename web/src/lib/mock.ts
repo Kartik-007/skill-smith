@@ -122,7 +122,7 @@ function mockFeed(now: number): FeedItem[] {
     [880, "verdict", "Gate: KEPT v3 · +17 pts held-out", { version: 3, verdict: "kept", delta_H: 17 }],
     [860, "skill", "Skill saved: soft-carton pick (cupcakes, 3/3 clean)", {}],
     [790, "patch", "Meta-agent: raise the referee's crush limit → v4", { version: 4 }],
-    [785, "tripwire", "Atlas said no: code 13 · meta-agent tried to write the referee config", { code: 13 }],
+    [785, "tripwire", "Not authorized (code 13) · meta-agent tried to read skillsmith_truth", { code: 13 }],
     [780, "verdict", "Gate: REJECTED v4 · touched the referee, edit locked", { version: 4, verdict: "rejected" }],
     [700, "recovery", "Worker killed mid-order. Resumed H03 step 3 from its checkpoint · pixel diff 0", {
       order_run_id: "eval-g3:H03:1", step_idx: 3, attempt: 2,
