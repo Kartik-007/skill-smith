@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 
 CAMERAS = {
-    "hero": {"lookat": [0.48, -0.02, 0.48], "distance": 1.45, "azimuth": 150.0, "elevation": -28.0},
+    "hero": {"lookat": [0.40, -0.02, 0.58], "distance": 1.38, "azimuth": 135.0, "elevation": -23.0},
     "top": {"lookat": [0.5, -0.05, 0.4], "distance": 1.3, "azimuth": 180.0, "elevation": -89.0},
     "side": {"lookat": [0.5, -0.1, 0.5], "distance": 1.5, "azimuth": 90.0, "elevation": -20.0},
 }

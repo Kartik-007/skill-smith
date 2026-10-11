@@ -45,6 +45,11 @@ def wait_batch(batch_id: str, workers: int) -> None:
     try:
         last = None
         while True:
+            for i, p in enumerate(procs):  # a crashed worker is replaced; its step's lease expires and is retried
+                if not p.is_alive():
+                    print(f"  worker {p.pid} exited ({p.exitcode}); starting a replacement", flush=True)
+                    procs[i] = mp.Process(target=_worker_proc, args=([batch_id],), daemon=True)
+                    procs[i].start()
             left = q.batch_remaining(batch_id)
             if left != last:
                 print(f"  batch {batch_id}: {left} steps left", flush=True)

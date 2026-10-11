@@ -28,7 +28,7 @@ STAGING = [np.array([0.33 + 0.15 * i, 0.25]) for i in range(3)]
 
 HOME_QPOS = np.array([0, 0, 0, -1.57079, 0, 1.57079, -0.7853])
 GREEN = "0.0 0.41 0.29 1"
-GREEN_LIGHT = "0.30 0.62 0.45 1"
+GREEN_LIGHT = "0.07 0.33 0.24 1"
 
 
 def _world_xml(items: list[dict], truth: dict) -> str:
@@ -88,8 +88,8 @@ def _world_xml(items: list[dict], truth: dict) -> str:
   <asset>
     <texture name="floor_tex" type="2d" builtin="checker" rgb1="0.20 0.21 0.23" rgb2="0.17 0.18 0.20" width="512" height="512"/>
     <material name="floor_mat" texture="floor_tex" texrepeat="8 8" reflectance="0.05"/>
-    <texture name="wood_tex" type="2d" builtin="flat" rgb1="0.80 0.74 0.64" width="64" height="64" mark="random" random="0.08" markrgb="0.72 0.66 0.56"/>
-    <material name="wood" texture="wood_tex" specular="0.2" shininess="0.2"/>
+    <texture name="sky" type="skybox" builtin="gradient" rgb1="0.10 0.16 0.20" rgb2="0.0 0.05 0.08" width="512" height="512"/>
+    <material name="wood" rgba="0.78 0.72 0.63 1" specular="0.15" shininess="0.2"/>
     <material name="cardboard" specular="0.05" shininess="0.05"/>
     <material name="steel" rgba="0.55 0.57 0.6 1" specular="0.6" shininess="0.6"/>
     {''.join(assets)}

@@ -153,6 +153,25 @@ def cmd_demo_kill(args) -> None:
     print(f"order done: {run['damage_free']}/{run['n_items']} damage-free, video {run.get('video')}", flush=True)
 
 
+def cmd_final_exam(args) -> None:
+    """Final exam F (never-seen products), run once for v0 and the best version."""
+    from . import evolve, gate
+    d = dbm.db()
+    best = _best_version()
+    orders = [o["_id"] for o in d.orders.find({"suite": "F"}, {"_id": 1})]
+    batch_id = f"final-{int(time.time())}"
+    runs = [{"order_id": o, "suite": "F", "repeat": r, "version": v} for v in sorted({0, best}) for o in orders
+            for r in range(2)]
+    q.enqueue_batch(batch_id, best, runs, kind="eval")
+    evolve.wait_batch(batch_id, args.workers)
+    res = {}
+    for v in sorted({0, best}):
+        res[v] = gate.summarize(evolve._runs(v, "F", [batch_id]))["pct"]
+        d.harness_versions.update_one({"version": v}, {"$set": {"scores.F": res[v]}})
+    dbm.feed("verdict", f"Final exam (never-seen snacks): v0 {res[0]}% -> best v{best} {res[best]}% damage-free")
+    print(res)
+
+
 def cmd_status(args) -> None:
     for v in dbm.db().harness_versions.find({}, {"genome": 0}).sort("version", 1):
         s = v.get("scores", {})
@@ -181,6 +200,7 @@ def main() -> None:
     s = sub.add_parser("demo-kill"); s.add_argument("--order", default="STORY"); s.add_argument("--version", type=int)
     s.add_argument("--kill-step", type=int, default=2); s.add_argument("--kill-after", type=float, default=2.0)
     s.set_defaults(fn=cmd_demo_kill)
+    s = sub.add_parser("final-exam"); s.add_argument("--workers", type=int, default=8); s.set_defaults(fn=cmd_final_exam)
     s = sub.add_parser("status"); s.set_defaults(fn=cmd_status)
     s = sub.add_parser("oracle"); s.add_argument("--processes", type=int, default=8); s.set_defaults(fn=cmd_oracle)
     args = ap.parse_args()

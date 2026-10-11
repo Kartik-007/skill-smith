@@ -52,7 +52,7 @@ def do_plan(step: dict) -> None:
     view = order_view(order, truth)
     lessons, skills = memory.retrieve_for_order(order["items"], genome["retrieval"])
     d = dbm.db()
-    err, cost, tokens, attempts, replayed = None, 0.0, 0, 0, False
+    err, cost, spent, tokens, attempts, replayed = None, 0.0, 0.0, 0, 0, False
     for attempt in range(1 + genome["retry"]["max_retries"]):
         prompt = coder.build_prompt(genome, view, lessons, skills, previous_error=err)
         call_key = sha1(step["version"], step["order_id"], step["repeat"], attempt, sha1(prompt))
@@ -66,7 +66,8 @@ def do_plan(step: dict) -> None:
             d.llm_ledger.update_one({"call_key": call_key}, {"$set": {
                 "status": "committed", "response": out, "cost_usd": out["cost_usd"], "model": out["model"],
                 "committed_at": dbm.now()}})
-        cost += 0.0 if replayed else out["cost_usd"]
+        cost += out["cost_usd"]  # nominal cost of this plan, used by the gate's cost guard
+        spent += 0.0 if replayed else out["cost_usd"]  # what we actually paid (replays are free)
         tokens += out["tokens_in"] + out["tokens_out"]
         attempts += 1
         rec = record_plan(out["code"], order, truth, genome["tools"])
@@ -82,7 +83,7 @@ def do_plan(step: dict) -> None:
         "plan_code": out["code"], "model": out["model"], "actions": rec["actions"], "tool_calls": rec["tool_calls"],
         "gaps": rec["gaps"], "plan_error": rec["error"], "tool_time_s": rec["tool_time_s"],
         "retrieved": {"lessons": [l["text"] for l in lessons], "skills": [s["text"] for s in skills]},
-        "cost_usd": round(cost, 6), "tokens": tokens, "llm_attempts": attempts, "llm_replayed": replayed,
+        "cost_usd": round(cost, 6), "spent_usd": round(spent, 6), "call_key": call_key, "tokens": tokens, "llm_attempts": attempts, "llm_replayed": replayed,
         "items": [], "status": "running", "created_at": dbm.now(), "video": None,
     }
     q.commit(step, lambda s: d.runs.replace_one({"_id": step["order_run_id"]}, {"_id": step["order_run_id"], **run},
