@@ -251,6 +251,11 @@ async function loadFromDb(db: Db, now: number): Promise<AppState> {
   const mocked: Section[] = [];
 
   let versions = versionsDesc.map(toVersion).reverse();
+  if (versions.length && versions[0].version !== 0) {
+    // more than 12 generations: keep v0 as the chart's anchor
+    const v0 = await db.collection("harness_versions").findOne({ version: 0 }, { projection: NO_HEAVY });
+    if (v0) versions = [toVersion(v0), ...versions.slice(1)];
+  }
   if (!versions.length) {
     versions = mock.versions;
     mocked.push("versions");
