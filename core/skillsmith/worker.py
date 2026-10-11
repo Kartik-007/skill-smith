@@ -48,7 +48,7 @@ def sha1(*parts) -> str:
 def do_plan(step: dict) -> None:
     order, truth, genome = _order(step["order_id"]), _truth(step["order_id"]), _genome(step["version"])
     view = order_view(order, truth)
-    lessons, skills = memory.retrieve_for_order(view, genome["retrieval"])
+    lessons, skills = memory.retrieve_for_order(order["items"], genome["retrieval"])
     d = dbm.db()
     err, cost, tokens, attempts, replayed = None, 0.0, 0, 0, False
     for attempt in range(1 + genome["retry"]["max_retries"]):
@@ -228,9 +228,8 @@ def _upsert_skill(product_id: str, action: dict, version: int, source: str) -> N
         return
     text = (f"{p.label} ({p.description}, about {catalog.visible(product_id)['approx_size_mm']} mm): packed clean "
             f"with grip='{action['grip']}', speed='{action['speed']}'.")
-    vec = memory.embed([text])[0]
     d.memory.update_one({"_id": sid}, {"$setOnInsert": {
-        "kind": "skill", "text": text, "embedding": vec, "active": True, "class": p.cls, "family": None,
+        "kind": "skill", "text": text, "needs_embed": True, "active": True, "class": p.cls, "family": None,
         "product_id": product_id, "grip": action["grip"], "speed": action["speed"], "uses": 1,
         "version_created": version, "source_run": source, "created_at": dbm.now()}}, upsert=True)
 

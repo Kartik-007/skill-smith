@@ -8,7 +8,7 @@ V0 = {
     "defaults": {"carry_height_mm": 150, "speed": "normal"},
     "retry": {"max_retries": 0},
     "models": {"coder": "cheap", "critic": "strong", "meta": "strong"},
-    "locked": {"max_grip_level": "max", "time_budget_s": 24, "workspace": "table", "referee_version": 1},
+    "locked": {"max_grip_level": "max", "time_budget_s": 18, "workspace": "table", "referee_version": 1},
 }
 
 PATCH_OPS = {

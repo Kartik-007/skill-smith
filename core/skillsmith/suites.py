@@ -7,7 +7,7 @@ import numpy as np
 from . import catalog
 from .truth import make_truth
 
-TIME_BUDGET_S = 24
+TIME_BUDGET_S = 18
 SUITE_SIZES = {"T": 8, "H": 6, "F": 3}
 STORY_CUSTOMER = "Dev Ittycheria"
 

@@ -58,6 +58,9 @@ def wait_batch(batch_id: str, workers: int) -> None:
         for p in procs:
             p.join(timeout=5)
     dbm.db().batches.update_one({"_id": batch_id}, {"$set": {"status": "done", "finished_at": dbm.now()}})
+    n = memory.embed_pending()
+    if n:
+        dbm.feed("skill", f"{n} new skills from clean packs saved to Atlas Vector Search")
 
 
 def _runs(version: int, suite: str, batch_ids: list[str] | None = None) -> list[dict]:
@@ -101,9 +104,9 @@ def run_critic(version: int, batch_id: str) -> None:
         return
     known = [m["text"] for m in dbm.db().memory.find({"kind": "lesson", "active": True}, {"text": 1})]
     out = critic.write_lessons(failures, known)
+    memory.add_many("lesson", [{"text": l["text"], "class": l.get("product_class"), "family": l.get("family"),
+                                "version_created": version, "source_batch": batch_id} for l in out["lessons"]])
     for l in out["lessons"]:
-        memory.add("lesson", l["text"], **{"class": l.get("product_class"), "family": l.get("family"),
-                                           "version_created": version, "source_batch": batch_id})
         dbm.feed("lesson", f"Critic: {l['text']}", version=version)
 
 

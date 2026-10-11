@@ -33,7 +33,8 @@ def api_doc(tools: dict) -> str:
         f"- api.pick(id, grip='medium', speed='normal'): grasp the item. grip in {GRIPS} (stronger squeezes harder); "
         f"speed in {SPEEDS}. Approx motion time per item: slow {SPEED_TIME_S['slow']}s, normal "
         f"{SPEED_TIME_S['normal']}s, fast {SPEED_TIME_S['fast']}s.",
-        "- api.place(id, slot): put the held item in a free slot ('S1', 'S2' or 'S3'). Call right after pick.",
+        "- api.place(id, slot): put the held item in a free slot ('S1', 'S2' or 'S3'). Call right after pick. "
+        "The arm keeps items vertical, so they are always set down upright.",
     ]
     if tools.get("weigh"):
         lines.append(f"- api.weigh(id) -> 'light' | 'medium' | 'heavy' (noisy). Costs {TOOL_COST_S:.0f}s of budget.")
@@ -41,7 +42,8 @@ def api_doc(tools: dict) -> str:
         lines.append(f"- api.squeeze_test(id) -> 'firm' | 'gives slightly' | 'soft' (noisy). How much the packaging "
                      f"gives under a light squeeze. Costs {TOOL_COST_S:.0f}s of budget.")
     lines += [
-        "- api.report_gap(text): tell the engineers about information or a tool you are missing. Free.",
+        "- api.report_gap(text): if you lack information you need to choose a grip or speed safely, say what is "
+        "missing (one short sentence). Free; the engineers read these.",
         "Items placed after the time budget runs out count as failures. No imports; plain Python only.",
     ]
     return "\n".join(lines)

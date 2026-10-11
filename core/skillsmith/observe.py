@@ -57,6 +57,7 @@ def report_run(run: dict, genome_summary: str) -> str | None:
         for gap in run.get("gaps", []):
             rd.track_signal(event_id=eid, name="capability_gap", signal_type="feedback", comment=gap,
                             sentiment="NEGATIVE", properties={"harness_version": run["version"]})
+        rd.flush()  # workers can be terminated between batches; don't leave events in the buffer
         return eid
     except Exception as e:  # observability must never break the night shift
         print(f"[raindrop] skipped: {e}")

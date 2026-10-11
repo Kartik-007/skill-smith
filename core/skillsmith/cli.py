@@ -26,6 +26,9 @@ def cmd_seed(args) -> None:
     t = dbm.truth_db("seed").scene_truth
     t.delete_many({})
     t.insert_many(truth)
+    vecs = memory.embed([f"{p.label}: {p.description}" for p in catalog.PRODUCTS])
+    for p, v in zip(catalog.PRODUCTS, vecs):
+        d.products.update_one({"_id": p.id}, {"$set": {"embedding": v}})
     dbm.ensure_indexes()
     memory.ensure_index()
     print(f"seeded {len(catalog.PRODUCTS)} products, {len(orders)} orders, {len(truth)} hidden truth docs")
@@ -109,6 +112,47 @@ def cmd_live(args) -> None:
             _worker([batch_id], True)
 
 
+def cmd_demo_kill(args) -> None:
+    """Live durability demo: pack the story order with rendering, kill -9 the worker mid-item, restart it,
+    and show that it resumes from the Atlas checkpoint (attempt 2) with identical frames."""
+    import os
+    import signal
+    import subprocess
+    import sys
+    os.environ["SKILLSMITH_DEMO"] = "1"
+    version = _best_version() if args.version is None else args.version
+    batch_id = f"demo-{args.order}-v{version}-{int(time.time())}"
+    q.enqueue_batch(batch_id, version, [{"order_id": args.order, "suite": "story", "repeat": 0}], kind="showcase",
+                    render=True)
+    d = dbm.db()
+    cmd = [sys.executable, "-m", "skillsmith.cli", "worker", "--batch", batch_id]
+    env = {**os.environ, "SKILLSMITH_DEMO": "1"}
+    print(f"night shift: packing {args.order} with harness v{version} (batch {batch_id})", flush=True)
+    w1 = subprocess.Popen(cmd, env=env)
+    target = f"{batch_id}:{args.order}:v{version}:r0:{args.kill_step}"
+    while not d.work_queue.find_one({"_id": target, "status": "leased"}):
+        time.sleep(0.2)
+    time.sleep(args.kill_after)
+    os.kill(w1.pid, signal.SIGKILL)
+    w1.wait()
+    print(f"\n*** kill -9 worker {w1.pid} in the middle of step {args.kill_step} ***\n", flush=True)
+    step = d.work_queue.find_one({"_id": target})
+    while True:
+        left = (step["lease"]["expires_at"].replace(tzinfo=None) - dbm.now().replace(tzinfo=None)).total_seconds()
+        if left <= 0:
+            break
+        print(f"  lease on step {args.kill_step} expires in {left:4.1f}s", flush=True)
+        time.sleep(1)
+    print("restarting the night shift...", flush=True)
+    w2 = subprocess.Popen(cmd + ["--exit-when-idle"], env=env)
+    w2.wait()
+    rec = d.feed.find_one({"type": "recovery", "refs.order_run_id": {"$regex": f"^{batch_id}"}}, sort=[("ts", -1)])
+    if rec:
+        print(f"\n{rec['text']}", flush=True)
+    run = d.runs.find_one({"batch_id": batch_id})
+    print(f"order done: {run['damage_free']}/{run['n_items']} damage-free, video {run.get('video')}", flush=True)
+
+
 def cmd_status(args) -> None:
     for v in dbm.db().harness_versions.find({}, {"genome": 0}).sort("version", 1):
         s = v.get("scores", {})
@@ -134,6 +178,9 @@ def main() -> None:
     s = sub.add_parser("showcase"); s.add_argument("--order", default="STORY"); s.add_argument("--version", type=int)
     s.add_argument("--enqueue-only", action="store_true"); s.set_defaults(fn=cmd_showcase)
     s = sub.add_parser("live"); s.add_argument("--enqueue-only", action="store_true"); s.set_defaults(fn=cmd_live)
+    s = sub.add_parser("demo-kill"); s.add_argument("--order", default="STORY"); s.add_argument("--version", type=int)
+    s.add_argument("--kill-step", type=int, default=2); s.add_argument("--kill-after", type=float, default=2.0)
+    s.set_defaults(fn=cmd_demo_kill)
     s = sub.add_parser("status"); s.set_defaults(fn=cmd_status)
     s = sub.add_parser("oracle"); s.add_argument("--processes", type=int, default=8); s.set_defaults(fn=cmd_oracle)
     args = ap.parse_args()
