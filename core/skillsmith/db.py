@@ -32,8 +32,23 @@ def truth_db(caller: str):
     return client()[TRUTH_DB_NAME]
 
 
+@lru_cache(maxsize=1)
+def harness_client() -> MongoClient | None:
+    """Optional restricted login (readWrite on skillsmith only). When set, Atlas itself enforces the wall."""
+    import os
+    uri = os.environ.get("MONGODB_URI_HARNESS")
+    return MongoClient(uri, appname="skill-smith-harness", serverSelectionTimeoutMS=20000) if uri else None
+
+
+def enforcement() -> str:
+    return "atlas" if harness_client() else "code"
+
+
 def agent_query(database: str, collection: str, filt: dict, limit: int = 20) -> list[dict]:
-    """The meta-agent's read tool (harness login). The truth database is off limits."""
+    """The meta-agent's read tool, on the harness login. The truth database is off limits."""
+    hc = harness_client()
+    if hc is not None:  # Atlas enforces it: the harness user has no privileges on the truth database
+        return list(hc[database][collection].find(filt, {"embedding": 0}).limit(limit))
     if database != DB_NAME:
         raise OperationFailure(f"not authorized on {database} to execute command "
                                f"{{ find: \"{collection}\" }}", code=13)

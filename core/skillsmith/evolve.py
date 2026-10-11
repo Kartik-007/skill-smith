@@ -139,8 +139,10 @@ def _run_query(qry: dict, version: int):
         res = dbm.agent_query(qry.get("database", ""), qry.get("collection", ""), qry.get("filter") or {})
         return json.loads(json.dumps(res, default=str))[:10]
     except OperationFailure as e:
+        who = "Atlas said no" if dbm.enforcement() == "atlas" else "blocked by the harness"
         dbm.feed("tripwire", f"Meta-agent tried to read {qry.get('database')}.{qry.get('collection')}: "
-                 f"Atlas said no (code {e.code})", version=version, query=json.dumps(qry)[:300])
+                 f"{who}, not authorized (code {e.code})", version=version, query=json.dumps(qry)[:300],
+                 enforcement=dbm.enforcement())
         return {"error": str(e), "code": e.code}
 
 
@@ -200,7 +202,8 @@ def generation(workers: int, forced_patch: dict | None = None) -> dict:
         else:
             prop = meta.propose(ctx, lambda qry: _run_query(qry, version))
         patch_text = genome.describe(prop["patch"])
-        dbm.feed("patch", f"Meta-agent: {patch_text}. {prop['rationale']}", version=version)
+        who = "Guardrail test (scripted)" if forced_patch else "Meta-agent"
+        dbm.feed("patch", f"{who}: {patch_text}. {prop['rationale']}", version=version)
         doc = {"version": version, "parent": inc["version"], "patch": prop["patch"], "patch_text": patch_text,
                "rationale": prop["rationale"], "predicted_effect": prop["predicted_effect"],
                "meta": {"model": prop["model"], "cost_usd": prop["cost_usd"], "query": prop.get("query")},
