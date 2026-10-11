@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { cx } from "@/components/studio/format";
 import { Icon } from "@/components/studio/icons";
-import { DurableDiagram } from "./DurableDiagram";
+import { DurableDiagram, type DurableBuild } from "./DurableDiagram";
 import { LoopDiagram, type Build } from "./LoopDiagram";
 
 // A 20-30 second keynote intro: problem, idea, how it works. Arrow keys / space / click advance;
@@ -14,7 +14,7 @@ type Beat =
   | { kind: "problem" }
   | { kind: "idea" }
   | { kind: "how"; build: Build; caption: string }
-  | { kind: "durable" };
+  | { kind: "durable"; build: DurableBuild; caption: string };
 
 const BEATS: { beat: Beat; secs: number }[] = [
   { beat: { kind: "problem" }, secs: 6 },
@@ -55,7 +55,33 @@ const BEATS: { beat: Beat; secs: number }[] = [
     },
     secs: 6,
   },
-  { beat: { kind: "durable" }, secs: 9 },
+  {
+    beat: {
+      kind: "durable",
+      build: "commit",
+      caption:
+        "Every step of an order is a leased job in an Atlas queue. When a step finishes, its result and the exact physics state commit together, in one transaction.",
+    },
+    secs: 5,
+  },
+  {
+    beat: {
+      kind: "durable",
+      build: "kill",
+      caption:
+        "Halfway through placing the cereal, we kill the worker. Nothing from that half-done step is saved, and its lease runs out.",
+    },
+    secs: 4.5,
+  },
+  {
+    beat: {
+      kind: "durable",
+      build: "resume",
+      caption:
+        "A new worker picks the step up, loads the checkpoint from Atlas and carries on from the exact same state. Pixel diff 0. The order still finishes 3/3.",
+    },
+    secs: 6,
+  },
 ];
 
 export function Intro({ auto }: { auto?: boolean }) {
@@ -169,7 +195,7 @@ export function Intro({ auto }: { auto?: boolean }) {
             version={version}
           />
         )}
-        {beat.kind === "durable" && <Durable key="d" />}
+        {beat.kind === "durable" && <Durable key="d" build={beat.build} caption={beat.caption} />}
       </div>
 
       <footer className="flex items-center gap-4">
@@ -372,17 +398,22 @@ function How({
   );
 }
 
-function Durable() {
+function Durable({ build, caption }: { build: DurableBuild; caption: string }) {
   return (
     <section className="animate-enter flex h-full flex-col pt-6">
       <div className="flex items-baseline gap-6">
         <Eyebrow n="04">Never loses its place</Eyebrow>
         <h2 className="text-[1.9rem] font-semibold tracking-tight">
-          Kill the worker mid-move. It resumes from Atlas, exactly.
+          Kill it mid-move. It picks up exactly where it stopped.
         </h2>
       </div>
-      <div className="card mt-5 min-h-0 flex-1 overflow-hidden px-8 py-5">
-        <DurableDiagram />
+      <div className="card mt-5 flex min-h-0 flex-1 flex-col overflow-hidden px-8 pt-4 pb-5">
+        <div className="min-h-0 flex-1">
+          <DurableDiagram build={build} />
+        </div>
+        <p key={caption} className="animate-enter mt-2 max-w-[70rem] text-[1.2rem] leading-snug text-ink-2">
+          {caption}
+        </p>
       </div>
     </section>
   );

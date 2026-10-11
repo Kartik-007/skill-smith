@@ -8,10 +8,10 @@ import { Icon, type IconName } from "@/components/studio/icons";
 export type Build = "run" | "memory" | "evolve" | "loop";
 const ORDER: Build[] = ["run", "memory", "evolve", "loop"];
 
-const S = 112; // node square
-const MONO = "var(--font-mono)";
+export const S = 112; // node square
+export const MONO = "var(--font-mono)";
 
-const C = {
+export const C = {
   ink: "var(--color-ink)",
   ink2: "var(--color-ink-2)",
   mute: "var(--color-mute)",
@@ -22,7 +22,7 @@ const C = {
   accent: "var(--color-accent)",
 };
 
-function Node({
+export function Node({
   x,
   y,
   icon,
@@ -61,7 +61,7 @@ function Node({
   );
 }
 
-function Edge({ d, label, lx, ly, anchor = "middle", blue }: { d: string; label?: string; lx?: number; ly?: number; anchor?: "start" | "middle" | "end"; blue?: boolean }) {
+export function Edge({ d, label, lx, ly, anchor = "middle", blue }: { d: string; label?: string; lx?: number; ly?: number; anchor?: "start" | "middle" | "end"; blue?: boolean }) {
   return (
     <g>
       <path d={d} fill="none" stroke={blue ? C.accent : C.line} strokeWidth={2} strokeDasharray="6 6" markerEnd={blue ? "url(#arrow-blue)" : "url(#arrow)"} />
@@ -74,7 +74,7 @@ function Edge({ d, label, lx, ly, anchor = "middle", blue }: { d: string; label?
   );
 }
 
-function GroupLabel({ x, y, text, extra }: { x: number; y: number; text: string; extra?: React.ReactNode }) {
+export function GroupLabel({ x, y, text, extra }: { x: number; y: number; text: string; extra?: React.ReactNode }) {
   const w = text.length * 13.5 + (extra ? 60 : 0) + 28;
   return (
     <g>
