@@ -1,22 +1,17 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { Stage } from "@/components/Stage";
-import { THEATER_VIEWS } from "@/lib/derive";
-import { publicDir } from "@/lib/paths";
-import { loadState } from "@/lib/state";
-import type { AppState } from "@/lib/types";
-import type { Mode } from "@/lib/useAppState";
+import { Studio } from "@/components/studio/Studio";
+import { MOCK_STORY } from "@/lib/story/mock";
+import type { Story } from "@/lib/story/types";
 
-export const dynamic = "force-dynamic";
-
-async function firstReplayFrame(): Promise<AppState | null> {
+// The recorded run, exported from Atlas by `skillsmith export-story` into public/story_v1.json: every version's
+// story-order run, retrieved memory, clips and gate numbers are real. The sample story is only a fallback if the
+// file is missing (the screen then shows a "sample data" badge).
+async function loadStory(): Promise<Story> {
   try {
-    const raw = await readFile(path.join(publicDir(), "replay.json"), "utf8");
-    const data = JSON.parse(raw) as AppState | AppState[];
-    const first = Array.isArray(data) ? data[0] : data;
-    return first ? { ...first, source: "replay" } : null;
+    return JSON.parse(await readFile(path.join(process.cwd(), "public", "story_v1.json"), "utf8")) as Story;
   } catch {
-    return null;
+    return MOCK_STORY;
   }
 }
 
@@ -26,9 +21,5 @@ export default async function Page({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  const mode: Mode = sp.replay === "1" ? "replay" : sp.mock === "1" ? "mock" : "live";
-  const initial = mode === "replay" ? await firstReplayFrame() : await loadState({ forceMock: mode === "mock" });
-  // ?view=v0|best|live opens the theater on one screen (keys 1-4 switch at runtime)
-  const view = THEATER_VIEWS.find((v) => v === sp.view);
-  return <Stage mode={mode} initial={initial} view={view} />;
+  return <Studio story={await loadStory()} autoplay={sp.autoplay === "1"} />;
 }

@@ -20,6 +20,8 @@ if (!process.env.MONGODB_URI) {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // a second dev server in the same folder (another session) needs its own build dir
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   devIndicators: false, // keep the projector screen clean during `npm run dev`
   // Media the core writes after the server started is not in Next's static file list; fall back to a route
   // that reads it from disk. Files that were there at startup are still served statically.
