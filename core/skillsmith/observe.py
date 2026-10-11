@@ -90,11 +90,13 @@ def report_generation(v: dict) -> None:
         rd = _rd()
         eid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"skillsmith/{epoch()}/generation/{v['version']}"))
         s = v.get("scores", {}) or {}
+        calls = [c["tool"] for c in (v.get("meta") or {}).get("investigation") or []]
         rd.track_ai(user_id="meta-agent", event="harness_patch", event_id=eid, model=(v.get("meta") or {}).get("model", ""),
                     input=f"{v.get('patch_text')}\nRationale: {v.get('rationale', '')}",
                     output=f"{v.get('verdict')}: {v.get('verdict_reason', '')}", convo_id="evolution",
                     properties={"harness_version": v["version"], "parent": v.get("parent") or 0, "epoch": epoch(),
-                                "verdict": v.get("verdict") or "", "H": s.get("H") or 0.0, "T": s.get("T") or 0.0})
+                                "verdict": v.get("verdict") or "", "H": s.get("H") or 0.0, "T": s.get("T") or 0.0,
+                                "tool_calls": str(len(calls)), "tools_used": ",".join(calls)})
         rd.track_signal(event_id=eid, name=f"gate_{v.get('verdict')}",
                         sentiment="POSITIVE" if v.get("verdict") == "kept" else "NEGATIVE",
                         properties={"harness_version": v["version"]})

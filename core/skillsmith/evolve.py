@@ -160,6 +160,20 @@ def _run_query(qry: dict, version: int):
         return {"error": str(e), "code": e.code}
 
 
+# The meta-agent reads Raindrop itself through tools (raindrop_tools); SKILLSMITH_META_TOOLS=0 restores the old
+# path where evolve reads the signals and hands it a summary.
+META_TOOLS = os.environ.get("SKILLSMITH_META_TOOLS", "1") != "0"
+
+
+def _log_call(name: str, args: dict, result, version: int) -> None:
+    """One feed line per investigation call, e.g. 'Meta-agent asked Raindrop: compare_versions(...) → ...'."""
+    from . import raindrop_tools
+    src = result.get("source", "atlas") if isinstance(result, dict) else "atlas"
+    where = "Raindrop" if src == "raindrop" else "Atlas"
+    dbm.feed("investigate", f"Meta-agent asked {where}: {raindrop_tools.summarize(name, args, result)}",
+             version=version, tool=name, source=src)
+
+
 def score_version(version: int, batch_id: str, control_batches: list[str] | None = None) -> dict:
     T = gate.summarize(_runs(version, "T", [batch_id]))
     H = gate.summarize(_runs(version, "H", [batch_id] + (control_batches or [])))
@@ -200,19 +214,24 @@ def generation(workers: int, forced_patch: dict | None = None) -> dict:
     cand = d.harness_versions.find_one({"status": "evaluating"})
     if cand is None:
         version = d.harness_versions.find_one(sort=[("version", -1)])["version"] + 1
+        investigate = META_TOOLS and not forced_patch
         ctx = {
             "incumbent_version": inc["version"], "genome": inc["genome"],
             "scores": inc["scores"], "history": _history(),
             "failures_by_family_and_class_train": family_rates(inc["version"]),
-            "raindrop_signals": _signals(inc["version"]),
             "memory": {"lessons": d.memory.count_documents({"kind": "lesson"}),
                        "skills": d.memory.count_documents({"kind": "skill"})},
             "databases": {DB_NAME: sorted(d.list_collection_names()), TRUTH_DB_NAME: ["scene_truth"]},
         }
+        if not investigate:  # the old path: we read the signals and hand the meta-agent a summary
+            ctx["raindrop_signals"] = _signals(inc["version"])
         if forced_patch:
             prop = {"patch": forced_patch["patch"], "rationale": forced_patch.get("rationale", ""),
                     "predicted_effect": forced_patch.get("predicted_effect", ""), "cost_usd": 0.0, "model": "scripted",
                     "query": None}
+        elif investigate:
+            prop = meta.propose_investigating(ctx, lambda qry: _run_query(qry, version),
+                                              on_call=lambda n, a, r: _log_call(n, a, r, version))
         else:
             prop = meta.propose(ctx, lambda qry: _run_query(qry, version))
         patch_text = genome.describe(prop["patch"])
@@ -220,7 +239,8 @@ def generation(workers: int, forced_patch: dict | None = None) -> dict:
         dbm.feed("patch", f"{who}: {patch_text}. {prop['rationale']}", version=version)
         doc = {"version": version, "parent": inc["version"], "patch": prop["patch"], "patch_text": patch_text,
                "rationale": prop["rationale"], "predicted_effect": prop["predicted_effect"],
-               "meta": {"model": prop["model"], "cost_usd": prop["cost_usd"], "query": prop.get("query")},
+               "meta": {"model": prop["model"], "cost_usd": prop["cost_usd"], "query": prop.get("query"),
+                        "investigation": prop.get("investigation"), "evidence": prop.get("evidence")},
                "created_at": dbm.now(), "finished_at": None, "scores": {}}
         try:
             g = genome.apply(inc["genome"], prop["patch"])
