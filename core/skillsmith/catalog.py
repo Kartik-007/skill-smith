@@ -57,6 +57,14 @@ PRODUCTS = [
             "candy_box", 0.25, "train", True),
     Product("cereal", "Vans_Cereal_Honey_Nut_Crunch_11_oz_box", "Van's honey nut crunch cereal",
             "11 oz cereal in a tall narrow box", "candy_box", 0.34, "train", True),
+    Product("coffeecake", "Nestle_Carnation_Cinnamon_Coffeecake_Kit_1913OZ", "Carnation cinnamon coffeecake kit",
+            "19 oz baking mix kit in a sturdy box", "dense_box", 0.56, "train", True),
+    Product("weston_tonic", "Weston_No_33_Signature_Sausage_Tonic_12_fl_oz", "Weston No. 33 sausage tonic",
+            "12 fl oz of seasoning brine in a tall plastic bottle, kept chilled", "plastic_bottle", 0.41, "train", True),
+    Product("sprinkles", "Wilton_Pearlized_Sugar_Sprinkles_525_oz_Gold", "Wilton pearlized sugar sprinkles",
+            "5.25 oz of gold sugar pearls in a slim rigid shaker jar", "canister", 0.18, "train", True),
+    Product("raisinets", "Nestle_Raisinets_Milk_Chocolate_35_oz_992_g", "Raisinets milk chocolate",
+            "3.5 oz theater box of chocolate-covered raisins", "candy_box", 0.11, "train"),
     # held-out: never in training orders
     Product("donut_sticks", "Little_Debbie_Donut_Sticks_6_cake_donuts_10_oz_total", "Little Debbie donut sticks",
             "6 cake donuts in a long thin carton", "thin_carton", 0.30, "heldout"),
@@ -69,11 +77,22 @@ PRODUCTS = [
             "a small smooth plastic bottle of liquid supplement", "plastic_bottle", 0.14, "heldout"),
     Product("momento", "Nescafe_Momento_Mocha_Specialty_Coffee_Mix_8_ct", "Nescafe Momento mocha mix",
             "8 coffee mix packets in a thin carton", "thin_carton", 0.20, "heldout"),
+    Product("memento_latte", "Nescafe_Memento_Latte_Caramel_8_08_oz_23_g_packets_64_oz_184_g",
+            "Nescafe Memento caramel latte mix", "8 latte mix packets (6.4 oz) in a thin carton", "thin_carton", 0.20,
+            "heldout"),
+    Product("elderberry", "Black_Elderberry_Syrup_54_oz_Gaia_Herbs", "Gaia Herbs black elderberry syrup",
+            "5.4 fl oz of syrup in a bottle, refrigerate after opening", "plastic_bottle", 0.27, "heldout", True),
+    Product("skinny_cow_clusters", "Nestle_Skinny_Cow_Dreamy_Clusters_Candy_Dark_Chocolate_6_pack_1_oz_pouches",
+            "Skinny Cow dreamy clusters", "6 one-ounce candy pouches in a box", "candy_box", 0.19, "heldout", True),
     # final exam
     Product("skinny_cow", "Nestl_Skinny_Cow_Heavenly_Crisp_Candy_Bar_Chocolate_Raspberry_6_pack_462_oz_total",
             "Skinny Cow heavenly crisp bars", "6 wrapped candy bars in a narrow box", "candy_box", 0.15, "final", True),
     Product("fruit_snacks", "Black_Forest_Fruit_Snacks_Juicy_Filled_Centers_10_pouches_9_oz_total",
             "Black Forest fruit snacks", "10 fruit snack pouches in a thin carton", "thin_carton", 0.28, "final"),
+    Product("herring", "Polar_Herring_Fillets_Smoked_Peppered_705_oz_total", "Polar smoked herring fillets",
+            "7.05 oz tin of fish fillets in a printed sleeve, kept chilled", "canister", 0.24, "final"),
+    Product("mastic_gum", "Mastic_Gum", "Mastic gum capsules", "a small round plastic bottle of supplement capsules",
+            "plastic_bottle", 0.09, "final"),
 ]
 BY_ID = {p.id: p for p in PRODUCTS}
 
