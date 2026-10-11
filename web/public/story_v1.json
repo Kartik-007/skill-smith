@@ -1,0 +1,755 @@
+{
+ "source": "db",
+ "objective": {
+  "title": "Pack Dev Ittycheria's snack box",
+  "customer": "Dev Ittycheria",
+  "time_budget_s": 18,
+  "goal": "3 snacks into the green box, nothing crushed, dropped or dented, under 18 s. Same cheap coder model every version."
+ },
+ "order": {
+  "id": "STORY",
+  "items": [
+   {
+    "id": "i0",
+    "product_id": "cupcakes",
+    "label": "Little Debbie chocolate cupcakes"
+   },
+   {
+    "id": "i1",
+    "product_id": "nesquik",
+    "label": "Nesquik chocolate powder canister"
+   },
+   {
+    "id": "i2",
+    "product_id": "cereal",
+    "label": "Van's honey nut crunch cereal"
+   }
+  ]
+ },
+ "versions": [
+  {
+   "version": 0,
+   "patch_text": "baseline harness",
+   "genome": {
+    "models": {
+     "coder": "Haiku 5.5",
+     "critic": "Sonnet 5.5",
+     "meta": "Sonnet 5.5"
+    },
+    "rules": [],
+    "tools": {
+     "weigh": false,
+     "squeeze_test": false
+    },
+    "retrieval": {
+     "lessons_k": 0,
+     "skills_k": 0,
+     "min_score": 0.75
+    },
+    "defaults": {
+     "carry_height_mm": 150,
+     "speed": "normal"
+    },
+    "retry": {
+     "max_retries": 0
+    },
+    "helpers": [],
+    "critic_focus": null,
+    "locked": {
+     "max_grip_level": "max",
+     "time_budget_s": 18,
+     "workspace": "table",
+     "referee_version": 1
+    }
+   },
+   "scores": {
+    "T": 29.2,
+    "H": 75.0,
+    "cycle_s": 13.13,
+    "cost_usd": 0.00031,
+    "by_family": {
+     "crush": 10.469999999999999,
+     "slip": 8.469999999999999,
+     "collision": 1.07,
+     "over_budget": 1.57
+    }
+   },
+   "run": {
+    "id": "show-STORY-v0-1791748521:STORY:v0:r0",
+    "plan": {
+     "model": "Haiku 5.5",
+     "code": "def pack(api):\n    grips = {'i0': 'soft', 'i1': 'medium', 'i2': 'soft'}\n    slots = ['S1', 'S2', 'S3']\n    for n, item in enumerate(api.items()):\n        iid = item['id']\n        api.pick(iid, grip=grips.get(iid, 'medium'), speed='fast')\n        api.place(iid, slots[n])",
+     "retrieved": {
+      "lessons": [],
+      "skills": []
+     },
+     "tool_calls": [],
+     "gaps": []
+    },
+    "steps": [
+     {
+      "kind": "place",
+      "item": {
+       "id": "i0",
+       "product_id": "cupcakes",
+       "label": "Little Debbie chocolate cupcakes"
+      },
+      "action": {
+       "grip": "soft",
+       "grip_N": 5.0,
+       "speed": "fast",
+       "speed_mps": 0.8,
+       "slot": "S1",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "guess",
+       "text": "No skills or lessons in the prompt; the coder guessed from the description."
+      },
+      "clip": {
+       "src": "/videos/clips/show-STORY-v0-1791748521_STORY_v0_r0_1.mp4",
+       "duration_s": 4.46
+      },
+      "result": {
+       "ok": false,
+       "family": "crush",
+       "detail": "squeezed too hard by the fingers",
+       "peak_N": 22.8,
+       "tilt_deg": 90.0,
+       "condition": null
+      }
+     },
+     {
+      "kind": "place",
+      "item": {
+       "id": "i1",
+       "product_id": "nesquik",
+       "label": "Nesquik chocolate powder canister"
+      },
+      "action": {
+       "grip": "medium",
+       "grip_N": 11.0,
+       "speed": "fast",
+       "speed_mps": 0.8,
+       "slot": "S2",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "guess",
+       "text": "No skills or lessons in the prompt; the coder guessed from the description."
+      },
+      "clip": {
+       "src": "/videos/clips/show-STORY-v0-1791748521_STORY_v0_r0_2.mp4",
+       "duration_s": 4.62
+      },
+      "result": {
+       "ok": false,
+       "family": "collision",
+       "detail": "hit another product while carried (28 N)",
+       "peak_N": 19.8,
+       "tilt_deg": 0.0,
+       "condition": null
+      }
+     },
+     {
+      "kind": "place",
+      "item": {
+       "id": "i2",
+       "product_id": "cereal",
+       "label": "Van's honey nut crunch cereal"
+      },
+      "action": {
+       "grip": "soft",
+       "grip_N": 5.0,
+       "speed": "fast",
+       "speed_mps": 0.8,
+       "slot": "S3",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "guess",
+       "text": "No skills or lessons in the prompt; the coder guessed from the description."
+      },
+      "clip": {
+       "src": "/videos/clips/show-STORY-v0-1791748521_STORY_v0_r0_3.mp4",
+       "duration_s": 4.58
+      },
+      "result": {
+       "ok": false,
+       "family": "slip",
+       "detail": "slid out of the fingers while carried",
+       "peak_N": 6.3,
+       "tilt_deg": 90.0,
+       "condition": null
+      }
+     }
+    ],
+    "verify": {
+     "damage_free": 0,
+     "n_items": 3,
+     "cycle_s": 11.85,
+     "signals": [
+      {
+       "name": "Crushed",
+       "item": "Little Debbie chocolate cupcakes",
+       "polarity": "negative"
+      },
+      {
+       "name": "Collision",
+       "item": "Nesquik chocolate powder canister",
+       "polarity": "negative"
+      },
+      {
+       "name": "Slipped",
+       "item": "Van's honey nut crunch cereal",
+       "polarity": "negative"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "version": 1,
+   "patch_text": "set_retrieval skills_k=3",
+   "genome": {
+    "models": {
+     "coder": "Haiku 5.5",
+     "critic": "Sonnet 5.5",
+     "meta": "Sonnet 5.5"
+    },
+    "rules": [],
+    "tools": {
+     "weigh": false,
+     "squeeze_test": false
+    },
+    "retrieval": {
+     "lessons_k": 0,
+     "skills_k": 3,
+     "min_score": 0.75
+    },
+    "defaults": {
+     "carry_height_mm": 150,
+     "speed": "normal"
+    },
+    "retry": {
+     "max_retries": 0
+    },
+    "helpers": [],
+    "critic_focus": null,
+    "locked": {
+     "max_grip_level": "max",
+     "time_budget_s": 18,
+     "workspace": "table",
+     "referee_version": 1
+    }
+   },
+   "scores": {
+    "T": 77.1,
+    "H": 83.3,
+    "cycle_s": 12.0,
+    "cost_usd": 0.00033,
+    "by_family": {
+     "crush": 5.0,
+     "slip": 1.5,
+     "collision": 2.0
+    }
+   },
+   "run": {
+    "id": "show-STORY-v1-1791760309:STORY:v1:r0",
+    "plan": {
+     "model": "Haiku 5.5",
+     "code": "def pack(api):\n    api.pick('i0', grip='soft', speed='fast')\n    api.place('i0', 'S1')\n    api.pick('i1', grip='medium', speed='fast')\n    api.place('i1', 'S2')\n    api.pick('i2', grip='medium', speed='fast')\n    api.place('i2', 'S3')",
+     "retrieved": {
+      "lessons": [],
+      "skills": [
+       "Nesquik chocolate powder canister (10.9 oz cocoa powder in a rigid canister, often stored cold, about [60, 110, 140] mm): packed clean with grip='firm', speed='normal'.",
+       "Nesquik chocolate powder canister (10.9 oz cocoa powder in a rigid canister, often stored cold, about [60, 110, 140] mm): packed clean with grip='firm', speed='fast'.",
+       "Nesquik chocolate powder canister (10.9 oz cocoa powder in a rigid canister, often stored cold, about [60, 110, 140] mm): packed clean with grip='medium', speed='fast'.",
+       "Little Debbie chocolate cupcakes (8 frosted cupcakes in a thin printed carton with a cellophane window, about [300, 60, 170] mm): packed clean with grip='soft', speed='normal'.",
+       "Van's honey nut crunch cereal (11 oz cereal in a tall narrow box, about [200, 60, 280] mm): packed clean with grip='soft', speed='normal'.",
+       "Van's honey nut crunch cereal (11 oz cereal in a tall narrow box, about [200, 60, 280] mm): packed clean with grip='medium', speed='fast'.",
+       "Crunch Girl Scouts peanut butter creme bars (7.8 oz box of individually wrapped candy bars, about [140, 60, 160] mm): packed clean with grip='soft', speed='normal'.",
+       "Rolled fondant, 24 oz (a solid 24 oz block of fondant icing in a printed box, about [120, 50, 170] mm): packed clean with grip='firm', speed='fast'."
+      ]
+     },
+     "tool_calls": [],
+     "gaps": []
+    },
+    "steps": [
+     {
+      "kind": "place",
+      "item": {
+       "id": "i0",
+       "product_id": "cupcakes",
+       "label": "Little Debbie chocolate cupcakes"
+      },
+      "action": {
+       "grip": "soft",
+       "grip_N": 5.0,
+       "speed": "fast",
+       "speed_mps": 0.8,
+       "slot": "S1",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "skill",
+       "text": "Proven skills for this product in the prompt: packed clean with grip='soft', speed='normal'"
+      },
+      "clip": {
+       "src": "/videos/clips/show-STORY-v1-1791760309_STORY_v1_r0_1.mp4",
+       "duration_s": 4.46
+      },
+      "result": {
+       "ok": false,
+       "family": "crush",
+       "detail": "squeezed too hard by the fingers",
+       "peak_N": 22.8,
+       "tilt_deg": 90.0,
+       "condition": null
+      }
+     },
+     {
+      "kind": "place",
+      "item": {
+       "id": "i1",
+       "product_id": "nesquik",
+       "label": "Nesquik chocolate powder canister"
+      },
+      "action": {
+       "grip": "medium",
+       "grip_N": 11.0,
+       "speed": "fast",
+       "speed_mps": 0.8,
+       "slot": "S2",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "skill",
+       "text": "Proven skills for this product in the prompt: packed clean with grip='firm', speed='normal' | packed clean with grip='firm', speed='fast' | packed clean with grip='medium', speed='fast'"
+      },
+      "clip": {
+       "src": "/videos/clips/show-STORY-v1-1791760309_STORY_v1_r0_2.mp4",
+       "duration_s": 4.62
+      },
+      "result": {
+       "ok": false,
+       "family": "collision",
+       "detail": "hit another product while carried (28 N)",
+       "peak_N": 19.8,
+       "tilt_deg": 0.0,
+       "condition": null
+      }
+     },
+     {
+      "kind": "place",
+      "item": {
+       "id": "i2",
+       "product_id": "cereal",
+       "label": "Van's honey nut crunch cereal"
+      },
+      "action": {
+       "grip": "medium",
+       "grip_N": 11.0,
+       "speed": "fast",
+       "speed_mps": 0.8,
+       "slot": "S3",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "skill",
+       "text": "Proven skills for this product in the prompt: packed clean with grip='soft', speed='normal' | packed clean with grip='medium', speed='fast'"
+      },
+      "clip": {
+       "src": "/videos/clips/show-STORY-v1-1791760309_STORY_v1_r0_3.mp4",
+       "duration_s": 4.58
+      },
+      "result": {
+       "ok": false,
+       "family": "crush",
+       "detail": "squeezed too hard by the fingers",
+       "peak_N": 19.2,
+       "tilt_deg": 63.2,
+       "condition": null
+      }
+     }
+    ],
+    "verify": {
+     "damage_free": 0,
+     "n_items": 3,
+     "cycle_s": 11.85,
+     "signals": [
+      {
+       "name": "Crushed",
+       "item": "Little Debbie chocolate cupcakes",
+       "polarity": "negative"
+      },
+      {
+       "name": "Collision",
+       "item": "Nesquik chocolate powder canister",
+       "polarity": "negative"
+      },
+      {
+       "name": "Crushed",
+       "item": "Van's honey nut crunch cereal",
+       "polarity": "negative"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "version": 2,
+   "patch_text": "set_retrieval lessons_k=2",
+   "genome": {
+    "models": {
+     "coder": "Haiku 5.5",
+     "critic": "Sonnet 5.5",
+     "meta": "Sonnet 5.5"
+    },
+    "rules": [],
+    "tools": {
+     "weigh": false,
+     "squeeze_test": false
+    },
+    "retrieval": {
+     "lessons_k": 2,
+     "skills_k": 3,
+     "min_score": 0.75
+    },
+    "defaults": {
+     "carry_height_mm": 150,
+     "speed": "normal"
+    },
+    "retry": {
+     "max_retries": 0
+    },
+    "helpers": [],
+    "critic_focus": null,
+    "locked": {
+     "max_grip_level": "max",
+     "time_budget_s": 18,
+     "workspace": "table",
+     "referee_version": 1
+    }
+   },
+   "scores": {
+    "T": 95.8,
+    "H": 88.9,
+    "cycle_s": 14.25,
+    "cost_usd": 0.00042,
+    "by_family": {
+     "crush": 2.0,
+     "collision": 1.0
+    }
+   },
+   "run": {
+    "id": "show-STORY-v2-1791748552:STORY:v2:r0",
+    "plan": {
+     "model": "Haiku 5.5",
+     "code": "def pack(api):\n    api.pick('i0', grip='soft', speed='normal')\n    api.place('i0', 'S1')\n    api.pick('i2', grip='soft', speed='normal')\n    api.place('i2', 'S2')\n    api.pick('i1', grip='firm', speed='fast')\n    api.place('i1', 'S3')",
+     "retrieved": {
+      "lessons": [
+       "Thin or tall cardboard cartons (crackers, cereal, cupcakes) crush at medium grip and even at soft grip when fast. Use soft grip with normal speed, and check force before lifting.",
+       "Rigid canisters crush at medium grip when fast, and slip at medium grip too. Use a firm-but-not-max grip with normal speed, and try a tool if one is available."
+      ],
+      "skills": [
+       "Nesquik chocolate powder canister (10.9 oz cocoa powder in a rigid canister, often stored cold, about [60, 110, 140] mm): packed clean with grip='firm', speed='normal'.",
+       "Nesquik chocolate powder canister (10.9 oz cocoa powder in a rigid canister, often stored cold, about [60, 110, 140] mm): packed clean with grip='firm', speed='fast'.",
+       "Nesquik chocolate powder canister (10.9 oz cocoa powder in a rigid canister, often stored cold, about [60, 110, 140] mm): packed clean with grip='medium', speed='fast'.",
+       "Little Debbie chocolate cupcakes (8 frosted cupcakes in a thin printed carton with a cellophane window, about [300, 60, 170] mm): packed clean with grip='soft', speed='normal'.",
+       "Van's honey nut crunch cereal (11 oz cereal in a tall narrow box, about [200, 60, 280] mm): packed clean with grip='soft', speed='normal'.",
+       "Van's honey nut crunch cereal (11 oz cereal in a tall narrow box, about [200, 60, 280] mm): packed clean with grip='medium', speed='fast'.",
+       "Crunch Girl Scouts peanut butter creme bars (7.8 oz box of individually wrapped candy bars, about [140, 60, 160] mm): packed clean with grip='soft', speed='normal'.",
+       "Rolled fondant, 24 oz (a solid 24 oz block of fondant icing in a printed box, about [120, 50, 170] mm): packed clean with grip='firm', speed='fast'."
+      ]
+     },
+     "tool_calls": [],
+     "gaps": []
+    },
+    "steps": [
+     {
+      "kind": "place",
+      "item": {
+       "id": "i0",
+       "product_id": "cupcakes",
+       "label": "Little Debbie chocolate cupcakes"
+      },
+      "action": {
+       "grip": "soft",
+       "grip_N": 5.0,
+       "speed": "normal",
+       "speed_mps": 0.35,
+       "slot": "S1",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "lesson",
+       "text": "Lesson: Thin or tall cardboard cartons (crackers, cereal, cupcakes) crush at medium grip and even at soft grip when fast. Use soft grip with normal speed, and check force before lifting. Skills: packed clean with grip='soft', speed='normal'"
+      },
+      "clip": {
+       "src": "/videos/clips/show-STORY-v2-1791748552_STORY_v2_r0_1.mp4",
+       "duration_s": 6.67
+      },
+      "result": {
+       "ok": true,
+       "family": null,
+       "detail": "packed clean",
+       "peak_N": 5.1,
+       "tilt_deg": 0.0,
+       "condition": null
+      }
+     },
+     {
+      "kind": "place",
+      "item": {
+       "id": "i2",
+       "product_id": "cereal",
+       "label": "Van's honey nut crunch cereal"
+      },
+      "action": {
+       "grip": "soft",
+       "grip_N": 5.0,
+       "speed": "normal",
+       "speed_mps": 0.35,
+       "slot": "S2",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "lesson",
+       "text": "Lesson: Thin or tall cardboard cartons (crackers, cereal, cupcakes) crush at medium grip and even at soft grip when fast. Use soft grip with normal speed, and check force before lifting. Skills: packed clean with grip='soft', speed='normal' | packed clean with grip='medium', speed='fast'"
+      },
+      "clip": {
+       "src": "/videos/clips/show-STORY-v2-1791748552_STORY_v2_r0_2.mp4",
+       "duration_s": 7.21
+      },
+      "result": {
+       "ok": true,
+       "family": null,
+       "detail": "packed clean",
+       "peak_N": 5.0,
+       "tilt_deg": 0.0,
+       "condition": null
+      }
+     },
+     {
+      "kind": "place",
+      "item": {
+       "id": "i1",
+       "product_id": "nesquik",
+       "label": "Nesquik chocolate powder canister"
+      },
+      "action": {
+       "grip": "firm",
+       "grip_N": 22.0,
+       "speed": "fast",
+       "speed_mps": 0.8,
+       "slot": "S3",
+       "on_top_of": null
+      },
+      "why": {
+       "source": "skill",
+       "text": "Proven skills for this product in the prompt: packed clean with grip='firm', speed='normal' | packed clean with grip='firm', speed='fast' | packed clean with grip='medium', speed='fast'"
+      },
+      "clip": {
+       "src": "/videos/clips/show-STORY-v2-1791748552_STORY_v2_r0_3.mp4",
+       "duration_s": 4.67
+      },
+      "result": {
+       "ok": true,
+       "family": null,
+       "detail": "packed clean",
+       "peak_N": 22.5,
+       "tilt_deg": 0.0,
+       "condition": null
+      }
+     }
+    ],
+    "verify": {
+     "damage_free": 3,
+     "n_items": 3,
+     "cycle_s": 16.76,
+     "signals": [
+      {
+       "name": "Packed clean",
+       "item": "Little Debbie chocolate cupcakes",
+       "polarity": "positive"
+      },
+      {
+       "name": "Packed clean",
+       "item": "Van's honey nut crunch cereal",
+       "polarity": "positive"
+      },
+      {
+       "name": "Packed clean",
+       "item": "Nesquik chocolate powder canister",
+       "polarity": "positive"
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "transitions": [
+  {
+   "from": 0,
+   "to": 1,
+   "model": "Sonnet 5.5",
+   "sample": false,
+   "signals": {
+    "source": "atlas",
+    "failures": [
+     {
+      "family": "crush",
+      "label": "Crushed",
+      "count": 10.5
+     },
+     {
+      "family": "slip",
+      "label": "Slipped",
+      "count": 8.5
+     },
+     {
+      "family": "collision",
+      "label": "Collision",
+      "count": 1.1
+     },
+     {
+      "family": "over_budget",
+      "label": "Over budget",
+      "count": 1.6
+     }
+    ],
+    "memory": {
+     "skills": 9,
+     "lessons": 3
+    }
+   },
+   "investigate": [],
+   "hypothesis": "Crush and slip are the main failures, and they cluster on specific products. 9 proven per-product skills are stored but unused (skills_k=0). Retrieving them adds no tool time, so it avoids over_budget risk.",
+   "patch": {
+    "op": "set_retrieval",
+    "path": "retrieval.skills_k",
+    "before": "0",
+    "after": "3",
+    "rationale": "Crush and slip are the main failures, and they cluster on specific products. 9 proven per-product skills are stored but unused (skills_k=0). Retrieving them adds no tool time, so it avoids over_budget risk.",
+    "predicted_effect": "Fewer crush and slip failures on repeat products, so T and H rise. Cycle time is about unchanged and cost rises only slightly."
+   },
+   "gate": {
+    "T": [
+     29.2,
+     77.1
+    ],
+    "H": [
+     77.8,
+     83.3
+    ],
+    "p_better": 1.0,
+    "guardrails": [
+     {
+      "name": "Held-out not down",
+      "ok": true,
+      "detail": "+5.6 pts (paired)"
+     },
+     {
+      "name": "No family regresses > 1 item",
+      "ok": true,
+      "detail": "worst: collision +0.9"
+     },
+     {
+      "name": "Cycle time \u2264 +20%",
+      "ok": true,
+      "detail": "13.1 s \u2192 12.0 s"
+     },
+     {
+      "name": "Cost \u2264 2\u00d7",
+      "ok": true,
+      "detail": "1.06\u00d7"
+     }
+    ]
+   },
+   "verdict": {
+    "status": "kept",
+    "reason": "Train +47.9 pts (P(better)=1.00), held-out +5.6 pts"
+   },
+   "cost_usd": 0.0081
+  },
+  {
+   "from": 1,
+   "to": 2,
+   "model": "Sonnet 5.5",
+   "sample": false,
+   "signals": {
+    "source": "atlas",
+    "failures": [
+     {
+      "family": "crush",
+      "label": "Crushed",
+      "count": 5.0
+     },
+     {
+      "family": "slip",
+      "label": "Slipped",
+      "count": 1.5
+     },
+     {
+      "family": "collision",
+      "label": "Collision",
+      "count": 2.0
+     }
+    ],
+    "memory": {
+     "skills": 10,
+     "lessons": 6
+    }
+   },
+   "investigate": [],
+   "hypothesis": "Lessons are retrieved at k=0 even though 6 critic lessons are stored. The remaining failures (collision and crush on Van's cereal, slip and crush on cupcakes and Nesquik) are product-specific, so lessons should help. This is a cheap, single-knob change.",
+   "patch": {
+    "op": "set_retrieval",
+    "path": "retrieval.lessons_k",
+    "before": "0",
+    "after": "2",
+    "rationale": "Lessons are retrieved at k=0 even though 6 critic lessons are stored. The remaining failures (collision and crush on Van's cereal, slip and crush on cupcakes and Nesquik) are product-specific, so lessons should help. This is a cheap, single-knob change.",
+    "predicted_effect": "Fewer collision, crush and slip failures on repeat products; T and H up a few points; cost up slightly; cycle time unchanged."
+   },
+   "gate": {
+    "T": [
+     77.1,
+     95.8
+    ],
+    "H": [
+     83.3,
+     88.9
+    ],
+    "p_better": 0.996,
+    "guardrails": [
+     {
+      "name": "Held-out not down",
+      "ok": true,
+      "detail": "+5.6 pts (paired)"
+     },
+     {
+      "name": "No family regresses > 1 item",
+      "ok": true,
+      "detail": "worst: tip +0.0"
+     },
+     {
+      "name": "Cycle time \u2264 +20%",
+      "ok": true,
+      "detail": "12.0 s \u2192 14.2 s"
+     },
+     {
+      "name": "Cost \u2264 2\u00d7",
+      "ok": true,
+      "detail": "1.27\u00d7"
+     }
+    ]
+   },
+   "verdict": {
+    "status": "kept",
+    "reason": "Train +18.8 pts (P(better)=1.00), held-out +5.6 pts"
+   },
+   "cost_usd": 0.0089
+  }
+ ]
+}

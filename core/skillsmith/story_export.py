@@ -13,6 +13,9 @@ from . import catalog, gate, observe
 from . import db as dbm
 from .config import REPO_DIR
 
+# v1 runs used named grip and speed levels; their calibrated values (v1 control.py) let both runs share one shape.
+V1_GRIP_N = {"soft": 5.0, "medium": 11.0, "firm": 22.0, "max": 47.0}
+V1_SPEED_MPS = {"slow": 0.15, "normal": 0.35, "fast": 0.8}
 MODEL_NAMES = {"anthropic/claude-haiku-5.5": "Haiku 5.5", "anthropic/claude-sonnet-5.5": "Sonnet 5.5"}
 LABELS = {v: k for k, v in observe.SIGNAL_LABELS.items()}
 SIGNAL_LABEL = observe.SIGNAL_LABELS
@@ -47,14 +50,26 @@ def _why(label: str, product_id: str, action: dict, run: dict) -> dict:
     tools = [t for t in run.get("tool_calls", []) if t["item"] == action["item"]]
     if tools:
         return {"source": "tool", "text": "; ".join(f"{t['tool']} said {t['answer']}" for t in tools)}
-    skills = [s for s in run["retrieved"]["skills"] if s.startswith(label)]
+    skills = [s.split("): ", 1)[-1].rstrip(".") for s in run["retrieved"]["skills"] if s.startswith(label)]
+    p = catalog.BY_ID[product_id]
+    words = {w.strip(".,()").lower() for w in f"{p.label} {p.description}".split() if len(w.strip(".,()")) > 5}
+    lessons = [l for l in run["retrieved"]["lessons"] if words & {w.strip(".,()").lower() for w in l.split()}]
+    if lessons:  # lessons generalise across products, so they're shown when they name this kind of product
+        return {"source": "lesson", "text": f"Lesson: {lessons[0]}"
+                + (" Skills: " + " | ".join(skills) if skills else "")}
     if skills:
-        return {"source": "skill", "text": f"{len(skills)} proven skill(s) for this product were in the prompt, e.g. "
-                                          f"\"{skills[0].split(': ', 1)[-1]}\""}
+        return {"source": "skill", "text": "Proven skills for this product in the prompt: " + " | ".join(skills)}
     if run["retrieved"]["lessons"]:
         return {"source": "lesson", "text": run["retrieved"]["lessons"][0]}
-    return {"source": "guess", "text": "No memory in the prompt; the coder estimated the grip from the gripper "
-                                       "datasheet rule and the description."}
+    return {"source": "guess", "text": "No skills or lessons in the prompt; the coder guessed from the description."}
+
+
+def _action(a: dict) -> dict:
+    if "grip_N" in a:  # v2: continuous
+        return {"grip": f"{a['grip_N']:g} N", "grip_N": a["grip_N"], "speed": f"{a['speed_mps']:g} m/s",
+                "speed_mps": a["speed_mps"], "slot": a["slot"], "on_top_of": a.get("on_top_of")}
+    return {"grip": a["grip"], "grip_N": V1_GRIP_N[a["grip"]], "speed": a["speed"],
+            "speed_mps": V1_SPEED_MPS[a["speed"]], "slot": a["slot"], "on_top_of": None}
 
 
 def _run(run: dict, order: dict) -> dict:
@@ -70,8 +85,7 @@ def _run(run: dict, order: dict) -> dict:
         steps.append({
             "kind": "place",
             "item": {"id": it["id"], "product_id": p.id, "label": p.label},
-            "action": {"grip": f"{a['grip_N']:g} N", "grip_N": a["grip_N"], "speed": f"{a['speed_mps']:g} m/s",
-                       "speed_mps": a["speed_mps"], "slot": a["slot"], "on_top_of": None},
+            "action": _action(a),
             "why": _why(p.label, p.id, a, run),
             "clip": {"src": f"/videos/clips/{clip.name}" if clip else "", "duration_s": _duration(clip) if clip else 0},
             "result": {"ok": bool(v["ok"]), "family": v["family"], "detail": v["detail"] or "packed clean",
@@ -120,7 +134,7 @@ def _transition(a: dict, b: dict) -> dict:
     return {
         "from": a["version"], "to": b["version"], "model": _model(b["meta"]["model"]), "sample": False,
         "signals": {"source": "raindrop" if sig and sig["refs"].get("source") == "raindrop" else "atlas",
-                    "failures": [{"family": f, "label": SIGNAL_LABEL[observe.FAMILY_SIGNAL[f]], "count": n}
+                    "failures": [{"family": f, "label": SIGNAL_LABEL[observe.FAMILY_SIGNAL[f]], "count": round(n, 1)}
                                  for f, n in sa["by_family"].items() if n],
                     "memory": {"skills": d.memory.count_documents({"kind": "skill", "version_created": {"$lte": a["version"]}}),
                                "lessons": d.memory.count_documents({"kind": "lesson", "version_created": {"$lte": a["version"]}})}},
@@ -167,4 +181,4 @@ def export(order_id: str, out: Path, title: str, goal: str) -> dict:
     return story
 
 
-DEFAULT_OUT = REPO_DIR / "web" / "public" / "story_v2.json"
+DEFAULT_OUT = REPO_DIR / "web" / "public" / "story_v1.json"
